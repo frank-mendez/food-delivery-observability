@@ -40,6 +40,7 @@ type IndexResponse = {
 describe('Food Delivery API (e2e)', () => {
   let app: INestApplication<App>;
   let prismaService: PrismaService;
+  let stdoutWrite: jest.SpiedFunction<typeof process.stdout.write>;
 
   beforeAll(async () => {
     process.env.DATABASE_URL =
@@ -47,6 +48,10 @@ describe('Food Delivery API (e2e)', () => {
       'postgresql://food_delivery:food_delivery@localhost:5432/food_delivery_test?schema=public';
     process.env.REDIS_HOST = process.env.REDIS_HOST ?? 'localhost';
     process.env.REDIS_PORT = process.env.REDIS_PORT ?? '6379';
+    process.env.LOG_LEVEL = 'info';
+    stdoutWrite = jest
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -56,7 +61,12 @@ describe('Food Delivery API (e2e)', () => {
     app.useGlobalPipes(
       new ValidationPipe({
         forbidNonWhitelisted: true,
+        forbidUnknownValues: true,
         transform: true,
+        validationError: {
+          target: false,
+          value: false,
+        },
         whitelist: true,
       }),
     );
@@ -71,6 +81,8 @@ describe('Food Delivery API (e2e)', () => {
     if (app) {
       await app.close();
     }
+
+    stdoutWrite.mockRestore();
   });
 
   it('GET / returns the API index', () => {
@@ -82,7 +94,7 @@ describe('Food Delivery API (e2e)', () => {
 
         expect(body).toMatchObject({
           name: 'food-delivery-observability',
-          phase: 'Phase 1',
+          phase: 'Phase 2',
           status: 'ok',
           endpoints: {
             health: '/health',
@@ -106,6 +118,36 @@ describe('Food Delivery API (e2e)', () => {
         expect(body.services.postgres.status).toBe('ok');
         expect(body.services.redis.status).toBe('ok');
       });
+  });
+
+  it('generates request ids and structured request logs', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/health')
+      .set('user-agent', 'supertest')
+      .expect(200);
+    const requestId = response.headers['x-request-id'];
+    const records = getStructuredLogRecords();
+    const completedLog = records.find(
+      (record) =>
+        record.message === 'API request completed' &&
+        record.requestId === requestId,
+    );
+
+    expect(requestId).toBeDefined();
+    expect(completedLog).toMatchObject({
+      message: 'API request completed',
+      requestId,
+      endpoint: '/health',
+      method: 'GET',
+      status: 200,
+      userAgent: 'supertest',
+    });
+    expect(completedLog?.traceId).toEqual(
+      expect.stringMatching(/^[a-f0-9]{32}$/),
+    );
+    expect(completedLog?.spanId).toEqual(
+      expect.stringMatching(/^[a-f0-9]{16}$/),
+    );
   });
 
   it('GET /restaurants returns seeded restaurants with menu items', () => {
@@ -162,6 +204,27 @@ describe('Food Delivery API (e2e)', () => {
         menuItemIds: [otherRestaurant.menuItems[0].id],
       })
       .expect(400);
+  });
+
+  it('POST /orders logs validation failures', async () => {
+    await request(app.getHttpServer())
+      .post('/orders')
+      .send({
+        restaurantId: 'not-a-uuid',
+        menuItemIds: [],
+      })
+      .expect(400);
+
+    expect(getStructuredLogRecords()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: 'Validation failure',
+          endpoint: '/orders',
+          method: 'POST',
+          status: 400,
+        }),
+      ]),
+    );
   });
 
   it('GET /metrics exposes Prometheus metrics', () => {
@@ -222,5 +285,12 @@ describe('Food Delivery API (e2e)', () => {
         },
       });
     }
+  }
+
+  function getStructuredLogRecords(): Array<Record<string, unknown>> {
+    return stdoutWrite.mock.calls
+      .map(([chunk]) => String(chunk).trim())
+      .filter((line) => line.startsWith('{') && line.endsWith('}'))
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
   }
 });

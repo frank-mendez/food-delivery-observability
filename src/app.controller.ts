@@ -6,13 +6,17 @@ export class AppController {
   getIndex() {
     return {
       name: 'food-delivery-observability',
-      phase: 'Phase 1',
+      phase: 'Phase 2',
       status: 'ok',
       endpoints: {
         health: '/health',
         restaurants: '/restaurants',
         orders: '/orders',
         metrics: '/metrics',
+        grafana: 'http://localhost:3000',
+        prometheus: 'http://localhost:9090',
+        loki: 'http://localhost:3100',
+        tempo: 'http://localhost:3200',
       },
     };
   }

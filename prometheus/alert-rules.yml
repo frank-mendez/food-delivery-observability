@@ -1,0 +1,52 @@
+groups:
+  - name: food-delivery-api
+    rules:
+      - alert: ApiLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(food_delivery_http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: API p95 latency is above 500 ms
+          description: The p95 API latency has been above 500 ms for 2 minutes.
+
+      - alert: Http500Spike
+        expr: sum(rate(food_delivery_http_requests_total{status_code=~"5.."}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: HTTP 500 responses detected
+          description: The API is returning 5xx responses.
+
+      - alert: ApiMemoryHigh
+        expr: |
+          (
+            container_memory_usage_bytes{name="food-delivery-api"}
+            /
+            container_spec_memory_limit_bytes{name="food-delivery-api"}
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: API container memory usage is above 80%
+          description: The API container is using more than 80% of its memory limit.
+
+      - alert: RedisUnavailable
+        expr: food_delivery_redis_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Redis is unavailable
+          description: The API cannot reach Redis.
+
+      - alert: DatabaseUnavailable
+        expr: food_delivery_database_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL is unavailable
+          description: The API cannot reach PostgreSQL.

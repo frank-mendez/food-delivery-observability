@@ -1,0 +1,62 @@
+{
+  "uid": "food-delivery-tracing",
+  "title": "Food Delivery Tracing",
+  "tags": ["food-delivery", "tracing"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Recent API Traces",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"food-delivery-api\" }",
+          "limit": 20
+        }
+      ],
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true }
+    },
+    {
+      "id": 2,
+      "title": "Slow Requests",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"food-delivery-api\" && duration > 500ms }",
+          "limit": 20
+        }
+      ],
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true }
+    },
+    {
+      "id": 3,
+      "title": "Errored Spans",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"food-delivery-api\" && status = error }",
+          "limit": 20
+        }
+      ],
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true }
+    }
+  ]
+}

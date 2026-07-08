@@ -1,0 +1,67 @@
+{
+  "uid": "food-delivery-logs",
+  "title": "Food Delivery Logs",
+  "tags": ["food-delivery", "logs"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "ERROR",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{project=\"food-delivery-observability\",service=\"api\"} |= \"\\\"level\\\":\\\"error\\\"\""
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 2,
+      "title": "WARN",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{project=\"food-delivery-observability\",service=\"api\"} |= \"\\\"level\\\":\\\"warn\\\"\""
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 3,
+      "title": "POST /orders",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{project=\"food-delivery-observability\",service=\"api\"} |= \"\\\"method\\\":\\\"POST\\\"\" |= \"\\\"endpoint\\\":\\\"/orders\\\"\""
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 4,
+      "title": "Validation Failures",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{project=\"food-delivery-observability\",service=\"api\"} |= \"Validation failure\""
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": true }
+    }
+  ]
+}

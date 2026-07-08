@@ -1,8 +1,8 @@
 # Food Delivery Observability
 
-Production-style food delivery backend foundation for learning NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, and Grafana.
+Production-style food delivery backend for learning NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Grafana Alloy, Loki, Tempo, and OpenTelemetry.
 
-Phase 1 builds a small API with health checks, seeded restaurants, order creation, and Prometheus metrics.
+Phase 2 keeps the business domain intentionally small while making the service observable through metrics, structured logs, and distributed traces.
 
 ## Architecture
 
@@ -14,11 +14,22 @@ NestJS API :4000
     |-----------------> PostgreSQL :5432
     |-----------------> Redis :6379
     |
+    | /metrics
     v
-/metrics
-    ^
+Prometheus :9090 <---------------- cAdvisor :8080
     |
-Prometheus :9090 ----> Grafana :3000
+    v
+Grafana :3000
+
+NestJS JSON stdout logs
+    |
+    v
+Docker logs -> Grafana Alloy :12345 -> Loki :3100 -> Grafana
+
+NestJS OpenTelemetry traces
+    |
+    v
+Grafana Alloy OTLP :4317/:4318 -> Tempo :3200 -> Grafana
 ```
 
 ## Local Setup
@@ -29,74 +40,37 @@ pnpm prisma generate
 docker compose up --build
 ```
 
-The API container runs migrations and seeds restaurants on startup.
+The API container runs Prisma migrations and seed data on startup.
 
-If `localhost:5432` is already used by another local PostgreSQL service, stop that service before running the default Compose stack. The repository intentionally maps PostgreSQL to `5432` for Phase 1.
+If `localhost:5432` is already used by another local PostgreSQL service, stop that service before running the default Compose stack. The repository intentionally maps PostgreSQL to `5432`.
 
-Useful URLs:
+## Ports
 
-- API: http://localhost:4000
-- Health: http://localhost:4000/health
-- Metrics: http://localhost:4000/metrics
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000
-- Grafana login: `admin` / `admin`
+| Service | URL |
+| --- | --- |
+| API | http://localhost:4000 |
+| Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
+| Loki | http://localhost:3100 |
+| Tempo | http://localhost:3200 |
+| Alloy UI | http://localhost:12345 |
+| cAdvisor | http://localhost:8081 |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
 
-## Docker Commands
-
-```bash
-docker compose up --build
-docker compose up --build -d
-docker compose logs -f api
-docker compose down
-docker compose down -v
-```
+Grafana login: `admin` / `admin`.
 
 ## API Endpoints
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/` | API index with available endpoint paths |
+| GET | `/` | API index with endpoint and observability links |
 | GET | `/health` | API, PostgreSQL, and Redis status |
 | GET | `/restaurants` | Seeded restaurants with menu items |
-| POST | `/orders` | Create an order with menu item ids |
+| POST | `/orders` | Create an order with menu item ids or item quantities |
 | GET | `/metrics` | Prometheus metrics |
 
-## Curl Examples
-
-API index:
-
-```bash
-curl http://localhost:4000/
-```
-
-Health:
-
-```bash
-curl http://localhost:4000/health
-```
-
-Restaurants:
-
-```bash
-curl http://localhost:4000/restaurants
-```
-
 Create an order:
-
-```bash
-curl -X POST http://localhost:4000/orders \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "restaurantId": "replace-with-restaurant-id",
-    "menuItemIds": [
-      "replace-with-menu-item-id",
-      "replace-with-another-menu-item-id"
-    ]
-  }'
-```
-
-Create an order with quantities:
 
 ```bash
 curl -X POST http://localhost:4000/orders \
@@ -109,35 +83,135 @@ curl -X POST http://localhost:4000/orders \
   }'
 ```
 
-Metrics:
-
-```bash
-curl http://localhost:4000/metrics
-```
-
 ## Metrics
 
-Application metrics:
+Prometheus scrapes:
+
+- API metrics from `api:4000/metrics`
+- cAdvisor container metrics from `cadvisor:8080`
+- Prometheus self metrics
+
+Important application metrics:
 
 - `food_delivery_http_requests_total`
 - `food_delivery_http_request_duration_seconds`
+- `food_delivery_http_active_requests`
 - `food_delivery_orders_created_total`
-- `food_delivery_order_creation_duration_seconds`
 - `food_delivery_failed_order_creation_total`
-- `food_delivery_health_check_total`
+- `food_delivery_order_creation_duration_seconds`
+- `food_delivery_order_value_dollars`
+- `food_delivery_average_order_value_dollars`
+- `food_delivery_database_query_duration_seconds`
+- `food_delivery_database_connection_pool_connections`
+- `food_delivery_database_connection_status`
+- `food_delivery_redis_connection_status`
+- `food_delivery_redis_operation_duration_seconds`
 
-Default Node.js process metrics are also exported with the `food_delivery_` prefix.
+Default Node.js process metrics are also exported with the `food_delivery_` prefix, including memory, heap, CPU, and event loop lag.
 
-Prometheus scrapes the API at `api:4000/metrics` from inside Docker. Check targets at:
+Inspect metrics:
 
-```text
-http://localhost:9090/targets
+```bash
+curl http://localhost:4000/metrics
+open http://localhost:9090/targets
 ```
 
-Grafana is provisioned with Prometheus as the default datasource. Check datasources at:
+## Logs
+
+The API writes structured JSON logs to stdout. Every log includes timestamp, traceId, spanId, requestId, correlationId, level, endpoint, method, status, duration, userAgent, IP, and message.
+
+Flow:
 
 ```text
-http://localhost:3000/connections/datasources
+API stdout JSON -> Docker json-file logs -> Alloy docker source -> Loki -> Grafana
+```
+
+Useful Loki queries:
+
+```logql
+{project="food-delivery-observability",service="api"} |= "\"level\":\"error\""
+{project="food-delivery-observability",service="api"} |= "\"level\":\"warn\""
+{project="food-delivery-observability",service="api"} |= "\"method\":\"POST\"" |= "\"endpoint\":\"/orders\""
+{project="food-delivery-observability",service="api"} |= "Validation failure"
+```
+
+Inspect logs:
+
+```bash
+docker compose logs -f api
+./skills.sh skill_loki
+```
+
+## Traces
+
+The API initializes OpenTelemetry before NestJS starts. HTTP, Express, PostgreSQL, and Redis instrumentation are enabled, with explicit controller/service/Prisma/Redis spans added in the app.
+
+Flow:
+
+```text
+API OpenTelemetry SDK -> Alloy OTLP receiver -> Tempo -> Grafana
+```
+
+Generate and inspect traces:
+
+```bash
+curl http://localhost:4000/health
+./skills.sh skill_trace
+```
+
+Tempo TraceQL example:
+
+```traceql
+{ resource.service.name = "food-delivery-api" }
+```
+
+## Grafana Dashboards
+
+Grafana automatically provisions Prometheus, Loki, and Tempo datasources plus these dashboards:
+
+- Food Delivery API
+- Food Delivery Orders
+- Food Delivery Infrastructure
+- Food Delivery Logs
+- Food Delivery Tracing
+
+Screenshot placeholders:
+
+- `docs/screenshots/api-dashboard.png`
+- `docs/screenshots/orders-dashboard.png`
+- `docs/screenshots/infrastructure-dashboard.png`
+- `docs/screenshots/logs-dashboard.png`
+- `docs/screenshots/tracing-dashboard.png`
+
+## Alerts
+
+Prometheus loads alert rules from `prometheus/alert-rules.yml`:
+
+- API latency above 500 ms
+- HTTP 500 spike
+- API memory above 80%
+- Redis unavailable
+- Database unavailable
+
+Check alerts at:
+
+```text
+http://localhost:9090/alerts
+```
+
+## Helper Commands
+
+```bash
+./skills.sh skill_info
+./skills.sh skill_verify
+./skills.sh skill_verify_observability
+./skills.sh skill_metrics
+./skills.sh skill_trace
+./skills.sh skill_dashboards
+./skills.sh skill_prometheus
+./skills.sh skill_loki
+./skills.sh skill_tempo
+./skills.sh skill_alloy
 ```
 
 ## Testing
@@ -161,65 +235,18 @@ docker compose up -d postgres redis
 pnpm test:e2e
 ```
 
-Lint and format:
+Lint and build:
 
 ```bash
 pnpm lint
-pnpm format
+pnpm build
 ```
 
-## Agent Skills
+## Troubleshooting
 
-`skills.sh` provides reusable helper commands for future agents and developers.
-
-Run a helper directly:
-
-```bash
-./skills.sh skill_info
-./skills.sh skill_verify
-```
-
-Available helpers:
-
-| Command | Purpose |
-| --- | --- |
-| `skill_help` | List all helper commands |
-| `skill_info` | Print project phase, stack, and URLs |
-| `skill_tree` | Display project structure |
-| `skill_up` | Start all services |
-| `skill_down` | Stop services |
-| `skill_restart` | Restart services |
-| `skill_logs` | Tail all logs |
-| `skill_logs_api` | Tail API logs |
-| `skill_logs_db` | Tail PostgreSQL logs |
-| `skill_logs_grafana` | Tail Grafana logs |
-| `skill_logs_prometheus` | Tail Prometheus logs |
-| `skill_db_shell` | Open PostgreSQL shell |
-| `skill_prisma_generate` | Generate Prisma Client |
-| `skill_prisma_migrate` | Create/apply a migration |
-| `skill_prisma_seed` | Seed restaurants and menu items |
-| `skill_prisma_reset` | Reset database |
-| `skill_test` | Run unit tests |
-| `skill_test_watch` | Run unit tests in watch mode |
-| `skill_lint` | Run ESLint |
-| `skill_format` | Run Prettier |
-| `skill_metrics` | Fetch `/metrics` |
-| `skill_health` | Fetch `/health` |
-| `skill_prometheus` | Check Prometheus readiness |
-| `skill_grafana` | Check Grafana health |
-| `skill_api` | Run API locally in watch mode |
-| `skill_shell` | Shell into API container |
-| `skill_clean` | Remove containers, volumes, dist, and coverage |
-| `skill_rebuild` | Rebuild API image and restart |
-| `skill_verify` | Verify PostgreSQL, Redis, API, Prometheus, and Grafana |
-
-## Phase 2 TODOs
-
-- Add order status transitions.
-- Add richer service dashboards in Grafana.
-- Add API latency and order SLO panels.
-- Add Redis-backed caching for restaurants.
-- Add request correlation ids and structured JSON logs.
-- Add load-generation scripts for observability practice.
-- Add alerting rules in Prometheus.
-- Add more failure scenarios for learning incident diagnosis.
+- `docker compose up --build` cannot bind `5432`: stop the local PostgreSQL service already using `localhost:5432`.
+- Grafana has no dashboards: check `docker compose logs grafana` and verify `grafana/provisioning/dashboards/dashboards.yml` is mounted.
+- Loki has no API logs: hit `http://localhost:4000/health`, then check `docker compose logs alloy` and `./skills.sh skill_loki`.
+- Tempo has no traces: hit `http://localhost:4000/health`, wait a few seconds, then run `./skills.sh skill_trace`.
+- Prometheus target is down: check `http://localhost:9090/targets` and `docker compose logs api prometheus`.
+- Redis or database alerts are firing after startup: call `http://localhost:4000/health` to refresh dependency gauges, then inspect service logs.

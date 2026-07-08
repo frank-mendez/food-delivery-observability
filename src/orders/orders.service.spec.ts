@@ -37,6 +37,18 @@ describe('OrdersService', () => {
     incrementOrdersCreated: jest.fn(),
     incrementFailedOrderCreation: jest.fn(),
   };
+  const logger = {
+    info: jest.fn(),
+  };
+  const tracingService = {
+    startActiveSpan: jest.fn(
+      (
+        _name: string,
+        _attributes: Record<string, unknown>,
+        callback: () => unknown,
+      ) => callback(),
+    ),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -74,6 +86,8 @@ describe('OrdersService', () => {
     const service = new OrdersService(
       prismaService as never,
       metricsService as never,
+      logger as never,
+      tracingService as never,
     );
 
     await expect(
@@ -93,8 +107,13 @@ describe('OrdersService', () => {
 
     expect(createOrderArgs?.data.status).toBe(OrderStatus.PENDING);
     expect(createOrderArgs?.data.totalAmount?.equals('26.25')).toBe(true);
-    expect(metricsService.incrementOrdersCreated).toHaveBeenCalledTimes(1);
+    expect(metricsService.incrementOrdersCreated).toHaveBeenCalledWith(26.25);
     expect(metricsService.incrementFailedOrderCreation).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith('Order created', {
+      orderStatus: OrderStatus.PENDING,
+      totalAmount: 26.25,
+      itemCount: 2,
+    });
   });
 
   it('combines duplicate menu item ids into item quantities', async () => {
@@ -124,6 +143,8 @@ describe('OrdersService', () => {
     const service = new OrdersService(
       prismaService as never,
       metricsService as never,
+      logger as never,
+      tracingService as never,
     );
 
     await service.create({
@@ -152,6 +173,8 @@ describe('OrdersService', () => {
     const service = new OrdersService(
       prismaService as never,
       metricsService as never,
+      logger as never,
+      tracingService as never,
     );
 
     await expect(
@@ -183,6 +206,8 @@ describe('OrdersService', () => {
     const service = new OrdersService(
       prismaService as never,
       metricsService as never,
+      logger as never,
+      tracingService as never,
     );
 
     await expect(
