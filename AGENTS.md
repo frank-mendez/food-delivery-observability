@@ -161,6 +161,16 @@ skill_dashboards
 - Do not copy local `node_modules`, coverage, or build output into Docker images.
 - The API container runs migrations and seed data on startup for one-command local setup.
 
+## Host Port Configuration Rules
+
+- Published Docker host ports must be configurable with root `.env` variables and defaults in `docker-compose.yml`.
+- Keep Docker-internal service ports stable and standard: PostgreSQL `5432`, Redis `6379`, API `4000`, Prometheus `9090`, Grafana `3000`, Loki `3100`, Tempo `3200`, Alloy UI `12345`, Alloy OTLP `4317`/`4318`, and cAdvisor `8080`.
+- Do not hard-code machine-specific alternate host ports in Compose files or docs.
+- Do not use host-port overrides for container-to-container communication.
+- Internal service URLs must keep Docker service names and container ports, such as `postgres:5432`, `redis:6379`, `api:4000`, `loki:3100`, `tempo:3200`, and `alloy:4318`.
+- Use host-port variables only for published localhost access, such as `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`, `API_HOST_PORT`, `GRAFANA_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `LOKI_HOST_PORT`, `TEMPO_HOST_PORT`, `ALLOY_HOST_PORT`, `ALLOY_OTLP_GRPC_HOST_PORT`, `ALLOY_OTLP_HTTP_HOST_PORT`, and `CADVISOR_HOST_PORT`.
+- Verify port configuration with `source ./skills.sh; skill_ports`, `skill_check_ports`, and `skill_verify_ports`.
+
 ## Testing Expectations
 
 - Configure and use Jest.
@@ -220,18 +230,37 @@ Workflow priorities:
 ## Context Handoff
 
 Current status:
-The repository has been refactored into a lightweight pnpm monorepo. The NestJS API now lives under `apps/api`, observability and database infrastructure configuration now lives under `infrastructure`, root package scripts orchestrate workspace commands, and `apps/web` is a Phase 4 placeholder only. No frontend features were implemented.
+The repository is a lightweight pnpm monorepo. The NestJS API lives under `apps/api`, observability and database infrastructure configuration lives under `infrastructure`, and `apps/web` is still only a Phase 4 placeholder. No frontend features have been scaffolded.
 
-Repository restructuring completed:
-- Moved `src`, `test`, `prisma`, `Dockerfile`, `nest-cli.json`, `prisma.config.ts`, `tsconfig.json`, and `tsconfig.build.json` into `apps/api`.
-- Moved API-specific Jest config into `apps/api/package.json`.
-- Moved API ESLint config to `apps/api/eslint.config.mjs`.
-- Moved `alloy`, `grafana`, `loki`, `prometheus`, and `tempo` into `infrastructure`.
-- Moved `docker/postgres/init-test-db.sql` to `infrastructure/postgres/init-test-db.sql` and removed the redundant `docker` directory.
-- Added `pnpm-workspace.yaml` with `apps/*` and `packages/*`.
-- Added `apps/web/README.md` as a Phase 4 placeholder.
-- Added `apps/api/.env.example`.
-- Did not create `packages/contracts`; contract extraction is deferred until there is a stable shared API surface.
+Port configurability work completed:
+- `docker-compose.yml` now uses environment-variable defaults for every published host port while preserving stable container ports.
+- Added host-port defaults to root `.env.example`.
+- Updated `apps/api/.env.example` to clarify host-run API and e2e localhost ports.
+- Updated `README.md` with Host Port Configuration, default mappings, override examples, and troubleshooting.
+- Updated `skills.sh` with `skill_ports`, `skill_check_ports`, and `skill_verify_ports`.
+- `skill_info`, `skill_verify`, and observability helper URLs now respect effective host ports from shell env or the ignored root `.env`.
+- `skill_up` and `skill_rebuild` print port conflict warnings before starting Compose.
+
+Configurable host-port variables:
+- `API_HOST_PORT=4000`
+- `POSTGRES_HOST_PORT=5432`
+- `REDIS_HOST_PORT=6379`
+- `PROMETHEUS_HOST_PORT=9090`
+- `GRAFANA_HOST_PORT=3000`
+- `LOKI_HOST_PORT=3100`
+- `TEMPO_HOST_PORT=3200`
+- `ALLOY_HOST_PORT=12345`
+- `ALLOY_OTLP_GRPC_HOST_PORT=4317`
+- `ALLOY_OTLP_HTTP_HOST_PORT=4318`
+- `CADVISOR_HOST_PORT=8081`
+
+Internal networking confirmation:
+- API database URL remains `postgres:5432`.
+- API Redis config remains `REDIS_HOST=redis` and `REDIS_PORT=6379`.
+- API trace export remains `http://alloy:4318`.
+- Prometheus still scrapes `api:4000` and `cadvisor:8080`.
+- Grafana datasources still use `prometheus:9090`, `loki:3100`, and `tempo:3200`.
+- Health checks still use container-local/internal ports.
 
 Important path changes:
 - API package: `apps/api/package.json`
@@ -248,40 +277,42 @@ Important path changes:
 - Tempo config: `infrastructure/tempo/tempo.yml`
 - PostgreSQL test database init: `infrastructure/postgres/init-test-db.sql`
 
-Verification results after refactor:
+Verification results for port configurability:
+- Baseline `source ./skills.sh; skill_verify_workspace`: passed, 9 passed and 0 failed.
+- Baseline `source ./skills.sh; skill_verify`: failed because the stack was not running, 0 passed and 5 failed.
+- Baseline port inspection showed `127.0.0.1:5432` already listening on this machine.
 - `pnpm install`: passed.
-- `pnpm install --frozen-lockfile`: passed.
-- `pnpm -r list --depth -1`: found root package and `@food-delivery/api`.
-- `pnpm prisma:generate`: passed from root and generated Prisma Client from `apps/api/prisma/schema.prisma`.
 - `pnpm lint`: passed.
 - `pnpm typecheck`: passed.
 - `pnpm build`: passed.
 - `pnpm test`: passed, 10 suites and 22 tests.
-- `pnpm verify`: passed.
-- `pnpm test:cov --runInBand`: tests passed but command failed coverage thresholds with 41.09% statements, 42.81% branches, 36.68% functions, and 39.65% lines. This is the same known Phase 3 coverage gap from before the refactor.
-- `docker compose config --quiet`: passed.
+- `docker compose --env-file /dev/null config`: resolved default Postgres `5432:5432` and Redis `6379:6379`.
+- `source ./skills.sh; skill_check_ports` before startup with local `.env` overrides: passed, all configured host ports available.
+- Active ignored local `.env` overrides used for runtime verification: `POSTGRES_HOST_PORT=15432` and `REDIS_HOST_PORT=16379`.
+- `docker compose config`: passed and resolved Postgres `15432:5432`, Redis `16379:6379`, and default mappings for the other services.
 - `docker compose build`: passed.
-- Default `docker compose up -d`: failed on this machine because host `localhost:5432` is already in use. This was a pre-existing local-machine issue.
-- Temporary verification start passed with:
-  `docker compose -f docker-compose.yml -f <(printf 'services:\n  postgres:\n    ports: !override\n      - "15432:5432"\n') up -d`
-- API health check passed: `GET http://localhost:4000/health`.
-- Metrics endpoint passed: `GET http://localhost:4000/metrics`.
+- `docker compose up -d`: passed with no Compose YAML edits.
+- `docker compose ps`: all services were up; Postgres published `15432->5432`, Redis published `16379->6379`, and cAdvisor became healthy after startup.
+- API health check passed: `GET http://localhost:4000/health` returned API, PostgreSQL, and Redis status `ok`.
+- PostgreSQL connectivity passed with `docker compose exec -T postgres pg_isready -U food_delivery -d food_delivery`.
+- Redis connectivity passed with `docker compose exec -T redis redis-cli ping`.
 - Prometheus API query for `up{job="food-delivery-api"}` returned `1`.
 - Grafana health returned database `ok`.
-- Grafana datasources and dashboards were provisioned from `infrastructure/grafana`.
-- `source ./skills.sh; skill_verify`: passed, 5 passed and 0 failed.
+- Loki ingestion check passed with a narrowed `{container="food-delivery-api"}` query showing current API `/health` and `/metrics` logs.
+- Tempo ingestion check passed and returned traces for `service.name=food-delivery-api`.
+- `source ./skills.sh; skill_verify_ports`: passed, 26 passed and 0 failed.
 - `source ./skills.sh; skill_verify_workspace`: passed, 9 passed and 0 failed.
-- `source ./skills.sh; skill_verify_observability`: passed on rerun, 7 passed and 0 failed. The first run happened while Grafana datasource health was still returning startup 503s.
-- Default `pnpm test:e2e`: failed on this machine at `localhost:5432` with a Prisma schema engine error, matching the known local PostgreSQL port conflict.
-- `TEST_DATABASE_URL=postgresql://food_delivery:food_delivery@localhost:15432/food_delivery_test?schema=public pnpm test:e2e`: passed, 1 suite and 9 tests.
-- `DATABASE_URL=postgresql://food_delivery:food_delivery@localhost:15432/food_delivery?schema=public pnpm prisma:migrate:deploy`: passed, no pending migrations.
-- `DATABASE_URL=postgresql://food_delivery:food_delivery@localhost:15432/food_delivery?schema=public pnpm prisma:seed`: passed.
-- Live smoke after clearing Redis passed: `GET /restaurants` returned 4 restaurants, seeded customer login worked, and `POST /orders` returned `PAYMENT_PENDING`.
+- `source ./skills.sh; skill_verify`: passed, 5 passed and 0 failed.
+- `source ./skills.sh; skill_verify_observability`: first run failed while Grafana datasource health returned startup 503s; direct datasource checks then passed, and rerun passed with 7 passed and 0 failed.
+- `pnpm test:cov --runInBand`: tests passed, but coverage thresholds failed with 41.09% statements, 42.81% branches, 36.68% functions, and 39.65% lines. This remains the known Phase 3 coverage gap.
 
 Known issues:
 - Coverage thresholds still fail until focused Phase 3 unit tests are added.
-- The default Docker and e2e host PostgreSQL port `localhost:5432` is occupied on this machine. Use a temporary Compose override mapping Postgres to `15432:5432` for local verification, or stop the conflicting local PostgreSQL service.
-- E2E tests still share Redis with the live stack when both are run together. Clear Redis after e2e or isolate/namespace cache keys to avoid live cache entries pointing at test database IDs.
+- The default host PostgreSQL port `localhost:5432` remains occupied on this machine. Use `.env` host-port overrides such as `POSTGRES_HOST_PORT=15432`.
+- If overriding `POSTGRES_HOST_PORT` or `REDIS_HOST_PORT`, host-run API/e2e commands must mirror those localhost ports in `DATABASE_URL`, `TEST_DATABASE_URL`, or `REDIS_PORT`.
+- E2E tests can still share Redis with the live stack when both are run together. Clear Redis after e2e or isolate/namespace cache keys to avoid live cache entries pointing at test database IDs.
+- Alloy Docker log discovery currently sees all local Docker containers and hard-codes the project label during relabeling. Broad Loki queries such as `{project="food-delivery-observability",service="api"}` may include unrelated local containers; use `container="food-delivery-api"` for precise validation or scope Alloy discovery in a follow-up.
+- Loki `/ready` returned 503 during this run even while log query ingestion worked. Tempo, Prometheus, Grafana health, and settled Grafana datasource checks passed.
 - Phase 3 dashboard and alert expansion for auth, payment, queue, cache, rider, notification, and domain-event metrics is still pending.
 - README still documents dashboard behavior but does not include real captured screenshots.
 
@@ -308,20 +339,21 @@ How to run the app:
 docker compose up --build
 ```
 
-If `localhost:5432` is occupied on this machine, use a temporary override for verification:
+If a default host port is occupied, set overrides in the ignored root `.env` instead of editing Compose YAML:
 
 ```bash
-docker compose -f docker-compose.yml -f <(printf 'services:\n  postgres:\n    ports: !override\n      - "15432:5432"\n') up -d
+POSTGRES_HOST_PORT=15432
+REDIS_HOST_PORT=16379
 ```
 
 Phase 4 readiness:
-`apps/web/README.md` reserves the web app location and documents that the future frontend should use Next.js. No frontend package or business functionality exists yet.
+`apps/web/README.md` reserves the web app location and documents that the future frontend should use Next.js. No frontend package or business functionality exists yet. The backend stack is reproducible on this machine with `.env` host-port overrides and no Compose file edits.
 
 Next recommended task:
-Close remaining Phase 3 Definition of Done gaps: add focused unit tests until coverage passes, isolate Redis/cache state for e2e tests, and expand Grafana dashboards plus Prometheus alerts for Phase 3 metric families. Start Phase 4 only after those backend/observability gaps are accepted or explicitly deferred.
+Close remaining Phase 3 Definition of Done gaps before Phase 4: add focused unit tests until coverage passes, scope Alloy Docker log discovery to this Compose project, isolate Redis/cache state for e2e tests, and expand Grafana dashboards plus Prometheus alerts for Phase 3 metric families.
 
 Last updated:
-2026-07-13 23:18 PHT/UTC+08
+2026-07-13 23:37 PHT/UTC+08
 
 At the end of every major task, update this Context Handoff section so the next agent can continue without reading the full conversation.
 

@@ -125,7 +125,7 @@ Do not commit real `.env` files.
 
 ## Ports
 
-| Service | URL |
+| Service | Default host URL |
 | --- | --- |
 | API | http://localhost:4000 |
 | Grafana | http://localhost:3000 |
@@ -138,6 +138,58 @@ Do not commit real `.env` files.
 | Redis | localhost:6379 |
 
 Grafana login: `admin` / `admin`.
+
+## Host Port Configuration
+
+Docker host ports are configurable through the root `.env` file. The defaults work on a clean machine, and you can override only the host side when a local service or another container already owns a common port.
+
+Container-to-container networking does not use these host ports. The API and observability services still connect internally with stable Docker service names and container ports such as `postgres:5432`, `redis:6379`, `api:4000`, `loki:3100`, `tempo:3200`, and `alloy:4318`.
+
+| Service | Variable | Default host port | Container port |
+| --- | --- | ---: | ---: |
+| API | `API_HOST_PORT` | 4000 | 4000 |
+| PostgreSQL | `POSTGRES_HOST_PORT` | 5432 | 5432 |
+| Redis | `REDIS_HOST_PORT` | 6379 | 6379 |
+| Prometheus | `PROMETHEUS_HOST_PORT` | 9090 | 9090 |
+| Grafana | `GRAFANA_HOST_PORT` | 3000 | 3000 |
+| Loki | `LOKI_HOST_PORT` | 3100 | 3100 |
+| Tempo | `TEMPO_HOST_PORT` | 3200 | 3200 |
+| Alloy UI | `ALLOY_HOST_PORT` | 12345 | 12345 |
+| Alloy OTLP gRPC | `ALLOY_OTLP_GRPC_HOST_PORT` | 4317 | 4317 |
+| Alloy OTLP HTTP | `ALLOY_OTLP_HTTP_HOST_PORT` | 4318 | 4318 |
+| cAdvisor | `CADVISOR_HOST_PORT` | 8081 | 8080 |
+
+Example conflict resolution in `.env`:
+
+```bash
+POSTGRES_HOST_PORT=15432
+REDIS_HOST_PORT=16379
+```
+
+Then start the stack normally:
+
+```bash
+docker compose up --build
+```
+
+Host-run API or e2e commands use localhost ports, so mirror overrides there when needed:
+
+```bash
+DATABASE_URL="postgresql://food_delivery:food_delivery@localhost:15432/food_delivery?schema=public"
+TEST_DATABASE_URL="postgresql://food_delivery:food_delivery@localhost:15432/food_delivery_test?schema=public"
+REDIS_PORT=16379
+```
+
+Useful port checks:
+
+```bash
+source ./skills.sh
+skill_ports
+skill_check_ports
+docker ps
+ss -lptn
+lsof -i
+```
 
 Seeded API users all use password `Password123!`:
 
@@ -220,6 +272,9 @@ open http://localhost:9090/targets
 source ./skills.sh
 skill_info
 skill_workspace
+skill_ports
+skill_check_ports
+skill_verify_ports
 skill_verify_workspace
 skill_verify
 skill_verify_observability
@@ -249,7 +304,7 @@ docker compose up -d postgres redis
 pnpm test:e2e
 ```
 
-If another local PostgreSQL service owns `localhost:5432`, use a temporary Compose override or stop the conflicting service before running default e2e commands.
+If another local PostgreSQL or Redis service owns the default host ports, set `POSTGRES_HOST_PORT` or `REDIS_HOST_PORT` in `.env` and mirror those localhost ports in `TEST_DATABASE_URL` or `REDIS_PORT` for host-run e2e commands.
 
 ## Postman
 
@@ -259,7 +314,10 @@ Run the seeded login requests first, then `GET /restaurants` so the collection c
 
 ## Troubleshooting
 
-- `docker compose up --build` cannot bind `5432`: stop the local PostgreSQL service already using `localhost:5432`.
+- `docker compose up --build` cannot bind a port: run `source ./skills.sh; skill_check_ports`, then set the suggested `*_HOST_PORT` override in `.env`.
+- Local PostgreSQL uses `5432`: set `POSTGRES_HOST_PORT=15432` in `.env`; containers still use `postgres:5432` internally.
+- Local Redis uses `6379`: set `REDIS_HOST_PORT=16379` in `.env`; containers still use `redis:6379` internally.
+- Another Docker container publishes the same port: inspect it with `docker ps` and choose a different `*_HOST_PORT` value.
 - API Docker build cannot find workspace files: confirm the Compose API build context is the repo root and the Dockerfile path is `apps/api/Dockerfile`.
 - Grafana has no dashboards: check `docker compose logs grafana` and verify `infrastructure/grafana/provisioning` is mounted.
 - Loki has no API logs: hit `http://localhost:4000/health`, then check `docker compose logs alloy` and `./skills.sh skill_loki`.

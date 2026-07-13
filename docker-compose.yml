@@ -27,7 +27,7 @@ services:
       OTEL_LOGS_EXPORTER: none
       OTEL_BSP_SCHEDULE_DELAY: 1000
     ports:
-      - '4000:4000'
+      - '${API_HOST_PORT:-4000}:4000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,7 +44,7 @@ services:
       POSTGRES_PASSWORD: food_delivery
       POSTGRES_DB: food_delivery
     ports:
-      - '5432:5432'
+      - '${POSTGRES_HOST_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro
@@ -59,7 +59,7 @@ services:
     container_name: food-delivery-redis
     command: redis-server --save 60 1 --loglevel warning
     ports:
-      - '6379:6379'
+      - '${REDIS_HOST_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -76,7 +76,7 @@ services:
       - --storage.tsdb.path=/prometheus
       - --web.enable-lifecycle
     ports:
-      - '9090:9090'
+      - '${PROMETHEUS_HOST_PORT:-9090}:9090'
     volumes:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infrastructure/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
@@ -93,7 +93,7 @@ services:
     command:
       - -config.file=/etc/loki/loki-config.yml
     ports:
-      - '3100:3100'
+      - '${LOKI_HOST_PORT:-3100}:3100'
     volumes:
       - ./infrastructure/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
@@ -105,7 +105,7 @@ services:
     command:
       - -config.file=/etc/tempo.yml
     ports:
-      - '3200:3200'
+      - '${TEMPO_HOST_PORT:-3200}:3200'
     volumes:
       - ./infrastructure/tempo/tempo.yml:/etc/tempo.yml:ro
       - tempo_data:/tmp/tempo
@@ -119,9 +119,9 @@ services:
       - --server.http.listen-addr=0.0.0.0:12345
       - /etc/alloy/config.alloy
     ports:
-      - '12345:12345'
-      - '4317:4317'
-      - '4318:4318'
+      - '${ALLOY_HOST_PORT:-12345}:12345'
+      - '${ALLOY_OTLP_GRPC_HOST_PORT:-4317}:4317'
+      - '${ALLOY_OTLP_HTTP_HOST_PORT:-4318}:4318'
     volumes:
       - ./infrastructure/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -136,7 +136,7 @@ services:
     container_name: food-delivery-cadvisor
     privileged: true
     ports:
-      - '8081:8080'
+      - '${CADVISOR_HOST_PORT:-8081}:8080'
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -151,7 +151,7 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
     ports:
-      - '3000:3000'
+      - '${GRAFANA_HOST_PORT:-3000}:3000'
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
