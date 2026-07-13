@@ -24,6 +24,20 @@ export class MetricsService {
   private readonly databaseConnectionStatus: Gauge<string>;
   private readonly redisConnectionStatus: Gauge<string>;
   private readonly redisOperationDuration: Histogram<string>;
+  private readonly authAttemptsTotal: Counter<string>;
+  private readonly orderStatusTransitionsTotal: Counter<string>;
+  private readonly paymentAttemptsTotal: Counter<string>;
+  private readonly paymentDuration: Histogram<string>;
+  private readonly queueDepth: Gauge<string>;
+  private readonly queueProcessingDuration: Histogram<string>;
+  private readonly queueFailuresTotal: Counter<string>;
+  private readonly queueRetriesTotal: Counter<string>;
+  private readonly notificationEventsTotal: Counter<string>;
+  private readonly cacheEventsTotal: Counter<string>;
+  private readonly cacheOperationDuration: Histogram<string>;
+  private readonly cacheInvalidationsTotal: Counter<string>;
+  private readonly riderDeliveryEventsTotal: Counter<string>;
+  private readonly domainEventsTotal: Counter<string>;
   private totalOrderValue = 0;
   private totalCreatedOrders = 0;
 
@@ -132,6 +146,107 @@ export class MetricsService {
       buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1],
       registers: [this.registry],
     });
+
+    this.authAttemptsTotal = new Counter({
+      name: 'food_delivery_auth_attempts_total',
+      help: 'Authentication attempts by action, role, and outcome.',
+      labelNames: ['action', 'role', 'outcome'],
+      registers: [this.registry],
+    });
+
+    this.orderStatusTransitionsTotal = new Counter({
+      name: 'food_delivery_order_status_transitions_total',
+      help: 'Order lifecycle transition attempts by status and outcome.',
+      labelNames: ['from_status', 'to_status', 'actor_role', 'outcome'],
+      registers: [this.registry],
+    });
+
+    this.paymentAttemptsTotal = new Counter({
+      name: 'food_delivery_payment_attempts_total',
+      help: 'Payment simulator attempts by outcome.',
+      labelNames: ['outcome'],
+      registers: [this.registry],
+    });
+
+    this.paymentDuration = new Histogram({
+      name: 'food_delivery_payment_duration_seconds',
+      help: 'Payment simulator latency in seconds.',
+      labelNames: ['outcome'],
+      buckets: [0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+      registers: [this.registry],
+    });
+
+    this.queueDepth = new Gauge({
+      name: 'food_delivery_queue_depth',
+      help: 'BullMQ queue jobs by queue and state.',
+      labelNames: ['queue', 'state'],
+      registers: [this.registry],
+    });
+
+    this.queueProcessingDuration = new Histogram({
+      name: 'food_delivery_queue_processing_duration_seconds',
+      help: 'BullMQ job processing duration in seconds.',
+      labelNames: ['queue', 'status'],
+      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+      registers: [this.registry],
+    });
+
+    this.queueFailuresTotal = new Counter({
+      name: 'food_delivery_queue_failures_total',
+      help: 'BullMQ job failures by queue.',
+      labelNames: ['queue'],
+      registers: [this.registry],
+    });
+
+    this.queueRetriesTotal = new Counter({
+      name: 'food_delivery_queue_retries_total',
+      help: 'BullMQ job retries by queue.',
+      labelNames: ['queue'],
+      registers: [this.registry],
+    });
+
+    this.notificationEventsTotal = new Counter({
+      name: 'food_delivery_notification_events_total',
+      help: 'Notification events by channel and status.',
+      labelNames: ['channel', 'status'],
+      registers: [this.registry],
+    });
+
+    this.cacheEventsTotal = new Counter({
+      name: 'food_delivery_cache_events_total',
+      help: 'Redis cache events by cache and result.',
+      labelNames: ['cache', 'result'],
+      registers: [this.registry],
+    });
+
+    this.cacheOperationDuration = new Histogram({
+      name: 'food_delivery_cache_operation_duration_seconds',
+      help: 'Redis cache operation duration in seconds.',
+      labelNames: ['cache', 'operation', 'result'],
+      buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+      registers: [this.registry],
+    });
+
+    this.cacheInvalidationsTotal = new Counter({
+      name: 'food_delivery_cache_invalidations_total',
+      help: 'Redis cache invalidations by cache name.',
+      labelNames: ['cache'],
+      registers: [this.registry],
+    });
+
+    this.riderDeliveryEventsTotal = new Counter({
+      name: 'food_delivery_rider_delivery_events_total',
+      help: 'Rider delivery lifecycle events by action and status.',
+      labelNames: ['action', 'status'],
+      registers: [this.registry],
+    });
+
+    this.domainEventsTotal = new Counter({
+      name: 'food_delivery_domain_events_total',
+      help: 'Domain events recorded by aggregate type and event type.',
+      labelNames: ['aggregate_type', 'event_type'],
+      registers: [this.registry],
+    });
   }
 
   get contentType(): string {
@@ -238,6 +353,92 @@ export class MetricsService {
         durationSeconds,
       );
     };
+  }
+
+  recordAuthAttempt(action: string, role: string, outcome: string) {
+    this.authAttemptsTotal.inc({ action, role, outcome });
+  }
+
+  recordOrderStatusTransition(
+    fromStatus: string,
+    toStatus: string,
+    actorRole: string,
+    outcome: 'success' | 'failure',
+  ) {
+    this.orderStatusTransitionsTotal.inc({
+      from_status: fromStatus,
+      to_status: toStatus,
+      actor_role: actorRole,
+      outcome,
+    });
+  }
+
+  recordPaymentAttempt(outcome: string, durationSeconds: number) {
+    this.paymentAttemptsTotal.inc({ outcome });
+    this.paymentDuration.observe({ outcome }, durationSeconds);
+  }
+
+  setQueueDepth(queue: string, state: string, count: number) {
+    this.queueDepth.set({ queue, state }, count);
+  }
+
+  startQueueProcessingTimer(
+    queue: string,
+  ): (status: 'success' | 'failure') => void {
+    const startedAt = process.hrtime.bigint();
+
+    return (status: 'success' | 'failure') => {
+      const durationSeconds =
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+      this.queueProcessingDuration.observe({ queue, status }, durationSeconds);
+    };
+  }
+
+  incrementQueueFailure(queue: string) {
+    this.queueFailuresTotal.inc({ queue });
+  }
+
+  incrementQueueRetry(queue: string) {
+    this.queueRetriesTotal.inc({ queue });
+  }
+
+  recordNotification(channel: string, status: string) {
+    this.notificationEventsTotal.inc({ channel, status });
+  }
+
+  recordCacheEvent(cache: string, result: string) {
+    this.cacheEventsTotal.inc({ cache, result });
+  }
+
+  startCacheOperationTimer(
+    cache: string,
+    operation: string,
+  ): (result: string) => void {
+    const startedAt = process.hrtime.bigint();
+
+    return (result: string) => {
+      const durationSeconds =
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+      this.cacheOperationDuration.observe(
+        { cache, operation, result },
+        durationSeconds,
+      );
+    };
+  }
+
+  incrementCacheInvalidation(cache: string) {
+    this.cacheInvalidationsTotal.inc({ cache });
+  }
+
+  recordRiderDeliveryEvent(action: string, status: string) {
+    this.riderDeliveryEventsTotal.inc({ action, status });
+  }
+
+  recordDomainEvent(aggregateType: string, eventType: string) {
+    this.domainEventsTotal.inc({
+      aggregate_type: aggregateType,
+      event_type: eventType,
+    });
   }
 
   async getMetrics(): Promise<string> {

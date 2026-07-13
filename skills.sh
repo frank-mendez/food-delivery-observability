@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_NAME="food-delivery-observability"
-CURRENT_PHASE="Phase 2"
+CURRENT_PHASE="Phase 3"
 API_URL="${API_URL:-http://localhost:4000}"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:9090}"
 GRAFANA_URL="${GRAFANA_URL:-http://localhost:3000}"
@@ -118,7 +118,7 @@ skill_prisma_migrate() {
   pnpm prisma migrate dev
 }
 
-# Seed restaurants and menu items.
+# Seed demo users, restaurants, and menu items.
 skill_prisma_seed() {
   pnpm prisma db seed
 }

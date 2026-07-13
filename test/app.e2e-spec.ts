@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { OrderStatus, RestaurantStatus } from '@prisma/client';
+import {
+  OrderStatus,
+  RestaurantStatus,
+  RiderAvailability,
+  UserRole,
+} from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -33,7 +39,17 @@ type IndexResponse = {
     health: string;
     restaurants: string;
     orders: string;
+    auth: string;
     metrics: string;
+  };
+};
+
+type AuthResponse = {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    role: string;
   };
 };
 
@@ -74,6 +90,7 @@ describe('Food Delivery API (e2e)', () => {
 
     prismaService = app.get(PrismaService);
     await resetDatabase();
+    await seedUsers();
     await seedRestaurants();
   });
 
@@ -94,12 +111,17 @@ describe('Food Delivery API (e2e)', () => {
 
         expect(body).toMatchObject({
           name: 'food-delivery-observability',
-          phase: 'Phase 2',
+          phase: 'Phase 3',
           status: 'ok',
           endpoints: {
+            auth: '/auth',
+            customers: '/customers/me',
             health: '/health',
+            notifications: '/notifications',
+            payments: '/payments/:orderId',
             restaurants: '/restaurants',
             orders: '/orders',
+            riders: '/riders',
             metrics: '/metrics',
           },
         });
@@ -162,14 +184,33 @@ describe('Food Delivery API (e2e)', () => {
       });
   });
 
-  it('POST /orders creates a pending order', async () => {
+  it('POST /auth/login returns JWT tokens for seeded customers', () => {
+    return request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'customer.e2e@example.com',
+        password: 'Password123!',
+      })
+      .expect(201)
+      .expect((response) => {
+        const body = response.body as AuthResponse;
+
+        expect(body.accessToken).toEqual(expect.any(String));
+        expect(body.refreshToken).toEqual(expect.any(String));
+        expect(body.user.role).toBe(UserRole.CUSTOMER);
+      });
+  });
+
+  it('POST /orders creates a payment-pending order for a customer', async () => {
     const restaurant = await prismaService.restaurant.findFirstOrThrow({
       include: { menuItems: true },
     });
     const menuItemIds = restaurant.menuItems.slice(0, 2).map((item) => item.id);
+    const accessToken = await loginCustomer();
 
     await request(app.getHttpServer())
       .post('/orders')
+      .set('authorization', `Bearer ${accessToken}`)
       .send({
         restaurantId: restaurant.id,
         menuItemIds,
@@ -178,7 +219,7 @@ describe('Food Delivery API (e2e)', () => {
       .expect((response) => {
         const body = response.body as OrderResponse;
 
-        expect(body.status).toBe(OrderStatus.PENDING);
+        expect(body.status).toBe(OrderStatus.PAYMENT_PENDING);
         expect(body.items).toHaveLength(2);
         expect(Number(body.totalAmount)).toBeGreaterThan(0);
       });
@@ -196,9 +237,11 @@ describe('Food Delivery API (e2e)', () => {
       },
       include: { menuItems: true },
     });
+    const accessToken = await loginCustomer();
 
     await request(app.getHttpServer())
       .post('/orders')
+      .set('authorization', `Bearer ${accessToken}`)
       .send({
         restaurantId: restaurant.id,
         menuItemIds: [otherRestaurant.menuItems[0].id],
@@ -207,8 +250,11 @@ describe('Food Delivery API (e2e)', () => {
   });
 
   it('POST /orders logs validation failures', async () => {
+    const accessToken = await loginCustomer();
+
     await request(app.getHttpServer())
       .post('/orders')
+      .set('authorization', `Bearer ${accessToken}`)
       .send({
         restaurantId: 'not-a-uuid',
         menuItemIds: [],
@@ -240,13 +286,64 @@ describe('Food Delivery API (e2e)', () => {
   });
 
   async function resetDatabase() {
+    await prismaService.notification.deleteMany();
+    await prismaService.delivery.deleteMany();
+    await prismaService.payment.deleteMany();
     await prismaService.orderItem.deleteMany();
     await prismaService.order.deleteMany();
     await prismaService.menuItem.deleteMany();
     await prismaService.restaurant.deleteMany();
+    await prismaService.refreshToken.deleteMany();
+    await prismaService.customerProfile.deleteMany();
+    await prismaService.riderProfile.deleteMany();
+    await prismaService.user.deleteMany();
+    await prismaService.domainEvent.deleteMany();
+  }
+
+  async function seedUsers() {
+    const passwordHash = await bcrypt.hash('Password123!', 12);
+
+    await prismaService.user.create({
+      data: {
+        email: 'customer.e2e@example.com',
+        passwordHash,
+        name: 'E2E Customer',
+        phone: '+15550101010',
+        role: UserRole.CUSTOMER,
+        customerProfile: {
+          create: {
+            address: '100 E2E Test Ave',
+          },
+        },
+      },
+    });
+    await prismaService.user.create({
+      data: {
+        email: 'owner.e2e@example.com',
+        passwordHash,
+        name: 'E2E Owner',
+        role: UserRole.RESTAURANT_OWNER,
+      },
+    });
+    await prismaService.user.create({
+      data: {
+        email: 'rider.e2e@example.com',
+        passwordHash,
+        name: 'E2E Rider',
+        role: UserRole.RIDER,
+        riderProfile: {
+          create: {
+            availability: RiderAvailability.AVAILABLE,
+          },
+        },
+      },
+    });
   }
 
   async function seedRestaurants() {
+    const owner = await prismaService.user.findUniqueOrThrow({
+      where: { email: 'owner.e2e@example.com' },
+    });
     const restaurants = [
       {
         name: 'Northstar Burgers Test',
@@ -275,6 +372,7 @@ describe('Food Delivery API (e2e)', () => {
       await prismaService.restaurant.create({
         data: {
           name: restaurant.name,
+          ownerId: owner.id,
           status: RestaurantStatus.OPEN,
           menuItems: {
             create: restaurant.menuItems.map((menuItem) => ({
@@ -285,6 +383,19 @@ describe('Food Delivery API (e2e)', () => {
         },
       });
     }
+  }
+
+  async function loginCustomer(): Promise<string> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'customer.e2e@example.com',
+        password: 'Password123!',
+      })
+      .expect(201);
+    const body = response.body as AuthResponse;
+
+    return body.accessToken;
   }
 
   function getStructuredLogRecords(): Array<Record<string, unknown>> {

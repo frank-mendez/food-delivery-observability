@@ -12,11 +12,20 @@ describe('RestaurantsService', () => {
         ) => callback(),
       ),
     };
+    const cacheService = {
+      getJson: jest.fn().mockResolvedValue(null),
+      setJson: jest.fn(),
+    };
     const service = new RestaurantsService(
       {
         restaurant: { findMany },
       } as never,
       tracingService as never,
+      cacheService as never,
+      { info: jest.fn() } as never,
+      { recordEvent: jest.fn() } as never,
+      { transitionOrder: jest.fn() } as never,
+      { add: jest.fn() } as never,
     );
 
     await expect(service.findAll()).resolves.toEqual([]);
@@ -25,9 +34,16 @@ describe('RestaurantsService', () => {
       orderBy: { name: 'asc' },
       include: {
         menuItems: {
+          where: { isAvailable: true },
           orderBy: { name: 'asc' },
         },
       },
     });
+    expect(cacheService.setJson).toHaveBeenCalledWith(
+      'restaurant_list',
+      'restaurants:list',
+      [],
+      60,
+    );
   });
 });

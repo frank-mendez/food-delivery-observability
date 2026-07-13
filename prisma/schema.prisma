@@ -11,25 +11,137 @@ enum RestaurantStatus {
   CLOSED
 }
 
+enum UserRole {
+  CUSTOMER
+  RESTAURANT_OWNER
+  RIDER
+  ADMINISTRATOR
+}
+
+enum RiderAvailability {
+  OFFLINE
+  AVAILABLE
+  BUSY
+}
+
 enum OrderStatus {
   PENDING
+  PAYMENT_PENDING
+  PAID
   ACCEPTED
+  REJECTED
   PREPARING
+  READY
+  RIDER_ASSIGNED
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  PAYMENT_FAILED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  TIMEOUT
+  RETRYING
+}
+
+enum DeliveryStatus {
+  ASSIGNED
+  ACCEPTED
+  PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
 }
 
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         UserRole
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customerProfile CustomerProfile?
+  riderProfile    RiderProfile?
+  ownedRestaurants Restaurant[]       @relation("RestaurantOwner")
+  orders           Order[]            @relation("CustomerOrders")
+  refreshTokens    RefreshToken[]
+  notifications    Notification[]
+
+  @@map("users")
+}
+
+model CustomerProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("customer_profiles")
+}
+
+model RiderProfile {
+  id           String            @id @default(uuid())
+  userId       String            @unique
+  availability RiderAvailability @default(OFFLINE)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id])
+  deliveries Delivery[]
+
+  @@map("rider_profiles")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
 model Restaurant {
   id        String           @id @default(uuid())
+  ownerId   String?
   name      String           @unique
   status    RestaurantStatus @default(OPEN)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
+  owner     User?      @relation("RestaurantOwner", fields: [ownerId], references: [id])
   menuItems MenuItem[]
   orders    Order[]
 
+  @@index([ownerId])
   @@map("restaurants")
 }
 
@@ -53,15 +165,25 @@ model MenuItem {
 model Order {
   id           String      @id @default(uuid())
   restaurantId String
+  customerId   String?
+  riderId      String?
   status       OrderStatus @default(PENDING)
   totalAmount  Decimal     @db.Decimal(10, 2)
+  cancelledAt  DateTime?
+  deliveredAt  DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
   restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  customer   User?       @relation("CustomerOrders", fields: [customerId], references: [id])
   items      OrderItem[]
+  payment    Payment?
+  delivery   Delivery?
 
   @@index([restaurantId])
+  @@index([customerId])
+  @@index([riderId])
+  @@index([status])
   @@map("orders")
 }
 
@@ -78,4 +200,73 @@ model OrderItem {
   @@index([orderId])
   @@index([menuItemId])
   @@map("order_items")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String        @unique
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(10, 2)
+  attemptCount      Int           @default(0)
+  providerReference String?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@map("payments")
+}
+
+model Delivery {
+  id          String         @id @default(uuid())
+  orderId     String         @unique
+  riderId     String?
+  status      DeliveryStatus @default(ASSIGNED)
+  acceptedAt  DateTime?
+  pickedUpAt  DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  order Order         @relation(fields: [orderId], references: [id])
+  rider RiderProfile? @relation(fields: [riderId], references: [id])
+
+  @@index([riderId])
+  @@index([status])
+  @@map("deliveries")
+}
+
+model Notification {
+  id          String             @id @default(uuid())
+  userId      String?
+  orderId     String?
+  channel     NotificationChannel
+  status      NotificationStatus @default(PENDING)
+  destination String
+  message     String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@map("notifications")
+}
+
+model DomainEvent {
+  id            String    @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  type          String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  processedAt   DateTime?
+
+  @@index([aggregateType, aggregateId])
+  @@index([type])
+  @@map("domain_events")
 }

@@ -13,6 +13,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ''
+      JWT_ACCESS_TOKEN_SECRET: local-compose-access-secret-change-me
+      JWT_REFRESH_TOKEN_SECRET: local-compose-refresh-secret-change-me
+      JWT_ACCESS_TOKEN_TTL_SECONDS: 900
+      JWT_REFRESH_TOKEN_TTL_SECONDS: 604800
+      PAYMENT_SIM_MIN_LATENCY_MS: 75
+      PAYMENT_SIM_MAX_LATENCY_MS: 350
       LOG_LEVEL: info
       OTEL_SERVICE_NAME: food-delivery-api
       OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318

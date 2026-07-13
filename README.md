@@ -2,7 +2,7 @@
 
 Production-style food delivery backend for learning NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Grafana Alloy, Loki, Tempo, and OpenTelemetry.
 
-Phase 2 keeps the business domain intentionally small while making the service observable through metrics, structured logs, and distributed traces.
+Phase 3 expands the backend into a realistic local food delivery platform with JWT authentication, role-based authorization, customers, restaurant owners, riders, order lifecycle transitions, simulated payments, BullMQ jobs, notifications, Redis caching, domain events, and end-to-end observability.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ curl / clients
     v
 NestJS API :4000
     |-----------------> PostgreSQL :5432
-    |-----------------> Redis :6379
+    |-----------------> Redis :6379 cache + BullMQ
     |
     | /metrics
     v
@@ -60,23 +60,63 @@ If `localhost:5432` is already used by another local PostgreSQL service, stop th
 
 Grafana login: `admin` / `admin`.
 
+Seeded API users all use password `Password123!`:
+
+| Role | Email |
+| --- | --- |
+| Administrator | `admin@example.com` |
+| Customer | `customer@example.com` |
+| Restaurant Owner | `owner@example.com` |
+| Rider | `rider@example.com` |
+
 ## API Endpoints
 
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/` | API index with endpoint and observability links |
+| POST | `/auth/register` | Register a customer |
+| POST | `/auth/register/restaurant-owner` | Register a restaurant owner |
+| POST | `/auth/login` | Login and receive access and refresh tokens |
+| POST | `/auth/refresh` | Rotate a refresh token |
+| POST | `/auth/logout` | Revoke a refresh token |
+| GET/PATCH | `/customers/me` | Customer profile |
 | GET | `/health` | API, PostgreSQL, and Redis status |
-| GET | `/restaurants` | Seeded restaurants with menu items |
-| POST | `/orders` | Create an order with menu item ids or item quantities |
+| GET | `/restaurants` | Cached restaurant list with available menu items |
+| GET | `/restaurants/:restaurantId/menu` | Cached menu |
+| POST/PATCH | `/restaurants` | Restaurant owner/admin management |
+| POST/PATCH/DELETE | `/restaurants/:restaurantId/menu-items` | Menu item management |
+| PATCH | `/restaurants/:restaurantId/orders/:orderId/accept` | Accept paid order |
+| PATCH | `/restaurants/:restaurantId/orders/:orderId/reject` | Reject paid order |
+| PATCH | `/restaurants/:restaurantId/orders/:orderId/preparing` | Mark accepted order preparing |
+| PATCH | `/restaurants/:restaurantId/orders/:orderId/ready` | Mark order ready and enqueue delivery assignment |
+| POST | `/orders` | Customer creates an order and enqueues payment |
+| GET | `/orders` | Customer order history |
+| PATCH | `/orders/:orderId/cancel` | Cancel a pending/payment-pending order |
+| GET/POST | `/payments/:orderId` | Inspect or retry simulated payments |
+| POST | `/riders/register` | Register a rider |
+| PATCH | `/riders/me/availability` | Rider availability |
+| POST | `/riders/assignments` | Simulate delivery assignment |
+| PATCH | `/riders/deliveries/:deliveryId/accept` | Rider accepts delivery |
+| PATCH | `/riders/deliveries/:deliveryId/pick-up` | Rider picks up order |
+| PATCH | `/riders/deliveries/:deliveryId/out-for-delivery` | Rider leaves for delivery |
+| PATCH | `/riders/deliveries/:deliveryId/deliver` | Rider completes delivery |
+| GET | `/notifications` | Current user's notification history |
 | GET | `/metrics` | Prometheus metrics |
 
-Create an order:
+Login and create an order:
 
 ```bash
+TOKEN=$(curl -s -X POST http://localhost:4000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"customer@example.com","password":"Password123!"}' \
+  | node -e "let b='';process.stdin.on('data',c=>b+=c);process.stdin.on('end',()=>console.log(JSON.parse(b).accessToken))")
+
 curl -X POST http://localhost:4000/orders \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${TOKEN}" \
   -d '{
     "restaurantId": "replace-with-restaurant-id",
+    "paymentScenario": "success",
     "items": [
       { "menuItemId": "replace-with-menu-item-id", "quantity": 2 }
     ]
@@ -106,6 +146,20 @@ Important application metrics:
 - `food_delivery_database_connection_status`
 - `food_delivery_redis_connection_status`
 - `food_delivery_redis_operation_duration_seconds`
+- `food_delivery_auth_attempts_total`
+- `food_delivery_order_status_transitions_total`
+- `food_delivery_payment_attempts_total`
+- `food_delivery_payment_duration_seconds`
+- `food_delivery_queue_depth`
+- `food_delivery_queue_processing_duration_seconds`
+- `food_delivery_queue_failures_total`
+- `food_delivery_queue_retries_total`
+- `food_delivery_notification_events_total`
+- `food_delivery_cache_events_total`
+- `food_delivery_cache_operation_duration_seconds`
+- `food_delivery_cache_invalidations_total`
+- `food_delivery_rider_delivery_events_total`
+- `food_delivery_domain_events_total`
 
 Default Node.js process metrics are also exported with the `food_delivery_` prefix, including memory, heap, CPU, and event loop lag.
 
@@ -144,7 +198,7 @@ docker compose logs -f api
 
 ## Traces
 
-The API initializes OpenTelemetry before NestJS starts. HTTP, Express, PostgreSQL, and Redis instrumentation are enabled, with explicit controller/service/Prisma/Redis spans added in the app.
+The API initializes OpenTelemetry before NestJS starts. HTTP, Express, PostgreSQL, Redis, auth, cache, payment, queue, notification, rider, restaurant, order lifecycle, service, Prisma, and worker spans are added in the app.
 
 Flow:
 
@@ -174,6 +228,8 @@ Grafana automatically provisions Prometheus, Loki, and Tempo datasources plus th
 - Food Delivery Infrastructure
 - Food Delivery Logs
 - Food Delivery Tracing
+
+The dashboards still focus on Phase 2 API, orders, infrastructure, logs, and traces. Phase 3 metrics are exposed and ready for dashboard expansion.
 
 Screenshot placeholders:
 

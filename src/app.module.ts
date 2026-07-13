@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
+import { AuthModule } from './auth/auth.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HealthModule } from './health/health.module';
 import { HttpMetricsInterceptor } from './common/interceptors/http-metrics.interceptor';
@@ -9,11 +10,15 @@ import { TracingInterceptor } from './common/interceptors/tracing.interceptor';
 import { HttpLoggingMiddleware } from './common/middleware/http-logging.middleware';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { ObservabilityModule } from './common/observability.module';
+import { CustomersModule } from './customers/customers.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
+import { RidersModule } from './riders/riders.module';
 
 @Module({
   imports: [
@@ -22,9 +27,14 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
     MetricsModule,
     PrismaModule,
     RedisModule,
+    AuthModule,
+    CustomersModule,
     HealthModule,
     RestaurantsModule,
     OrdersModule,
+    PaymentsModule,
+    RidersModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

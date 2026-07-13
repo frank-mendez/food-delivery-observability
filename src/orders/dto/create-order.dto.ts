@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsUUID,
@@ -13,6 +14,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import type { PaymentScenario } from '../../payments/payment.types';
 
 export class CreateOrderItemDto {
   @IsUUID()
@@ -59,4 +61,8 @@ export class CreateOrderDto {
   @ArrayMaxSize(20)
   @IsUUID('all', { each: true })
   menuItemIds?: string[];
+
+  @IsOptional()
+  @IsIn(['success', 'failure', 'timeout'])
+  paymentScenario?: PaymentScenario;
 }
