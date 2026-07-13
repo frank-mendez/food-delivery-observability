@@ -206,6 +206,25 @@ export class RestaurantsService {
     return popularItems;
   }
 
+  async findOrders(user: AuthenticatedUser, restaurantId: string) {
+    await this.assertCanManageRestaurant(user, restaurantId);
+
+    return this.prismaService.order.findMany({
+      where: { restaurantId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        restaurant: true,
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
+        payment: true,
+        delivery: true,
+      },
+    });
+  }
+
   async createRestaurant(
     user: AuthenticatedUser,
     createDto: CreateRestaurantDto,

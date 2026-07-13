@@ -49,6 +49,16 @@ export class RestaurantsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...OWNER_ROLES)
+  @Get(':restaurantId/orders')
+  findOrders(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('restaurantId') restaurantId: string,
+  ) {
+    return this.restaurantsService.findOrders(user, restaurantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...OWNER_ROLES)
   @Post()
   createRestaurant(
     @CurrentUser() user: AuthenticatedUser,

@@ -46,4 +46,49 @@ describe('RestaurantsService', () => {
       60,
     );
   });
+
+  it('returns orders for a restaurant the owner can manage', async () => {
+    const restaurant = { id: 'restaurant-1', ownerId: 'owner-1' };
+    const findUnique = jest.fn().mockResolvedValue(restaurant);
+    const findMany = jest.fn().mockResolvedValue([]);
+    const service = new RestaurantsService(
+      {
+        restaurant: { findUnique },
+        order: { findMany },
+      } as never,
+      { startActiveSpan: jest.fn() } as never,
+      { getJson: jest.fn(), setJson: jest.fn(), delete: jest.fn() } as never,
+      { info: jest.fn() } as never,
+      { recordEvent: jest.fn() } as never,
+      { transitionOrder: jest.fn() } as never,
+      { add: jest.fn() } as never,
+    );
+
+    await expect(
+      service.findOrders(
+        {
+          id: 'owner-1',
+          email: 'owner@example.com',
+          name: 'Owner',
+          role: 'RESTAURANT_OWNER',
+        },
+        'restaurant-1',
+      ),
+    ).resolves.toEqual([]);
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { restaurantId: 'restaurant-1' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        restaurant: true,
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
+        payment: true,
+        delivery: true,
+      },
+    });
+  });
 });
