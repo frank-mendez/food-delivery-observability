@@ -2,11 +2,14 @@
 set -euo pipefail
 
 PROJECT_NAME="food-delivery-observability"
-CURRENT_PHASE="Phase 3"
+CURRENT_PHASE="Phase 4"
 API_PACKAGE="@food-delivery/api"
 API_DIR="apps/api"
+WEB_PACKAGE="@food-delivery/web"
+WEB_DIR="apps/web"
 
 DEFAULT_API_HOST_PORT=4000
+DEFAULT_WEB_HOST_PORT=3001
 DEFAULT_POSTGRES_HOST_PORT=5432
 DEFAULT_REDIS_HOST_PORT=6379
 DEFAULT_PROMETHEUS_HOST_PORT=9090
@@ -41,6 +44,7 @@ _skill_env_value() {
 }
 
 API_HOST_PORT="$(_skill_env_value API_HOST_PORT "${DEFAULT_API_HOST_PORT}")"
+WEB_HOST_PORT="$(_skill_env_value WEB_HOST_PORT "${DEFAULT_WEB_HOST_PORT}")"
 POSTGRES_HOST_PORT="$(_skill_env_value POSTGRES_HOST_PORT "${DEFAULT_POSTGRES_HOST_PORT}")"
 REDIS_HOST_PORT="$(_skill_env_value REDIS_HOST_PORT "${DEFAULT_REDIS_HOST_PORT}")"
 PROMETHEUS_HOST_PORT="$(_skill_env_value PROMETHEUS_HOST_PORT "${DEFAULT_PROMETHEUS_HOST_PORT}")"
@@ -53,6 +57,7 @@ ALLOY_OTLP_HTTP_HOST_PORT="$(_skill_env_value ALLOY_OTLP_HTTP_HOST_PORT "${DEFAU
 CADVISOR_HOST_PORT="$(_skill_env_value CADVISOR_HOST_PORT "${DEFAULT_CADVISOR_HOST_PORT}")"
 
 API_URL="${API_URL:-http://localhost:${API_HOST_PORT}}"
+WEB_URL="${WEB_URL:-http://localhost:${WEB_HOST_PORT}}"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:${PROMETHEUS_HOST_PORT}}"
 GRAFANA_URL="${GRAFANA_URL:-http://localhost:${GRAFANA_HOST_PORT}}"
 LOKI_URL="${LOKI_URL:-http://localhost:${LOKI_HOST_PORT}}"
@@ -166,6 +171,7 @@ _skill_compose_port_mapping() {
 _skill_port_rows() {
   cat <<PORTS
 API|api|API_HOST_PORT|${API_HOST_PORT}|4000|${API_URL}
+Web|web|WEB_HOST_PORT|${WEB_HOST_PORT}|3001|${WEB_URL}
 PostgreSQL|postgres|POSTGRES_HOST_PORT|${POSTGRES_HOST_PORT}|5432|localhost:${POSTGRES_HOST_PORT}
 Redis|redis|REDIS_HOST_PORT|${REDIS_HOST_PORT}|6379|localhost:${REDIS_HOST_PORT}
 Prometheus|prometheus|PROMETHEUS_HOST_PORT|${PROMETHEUS_HOST_PORT}|9090|${PROMETHEUS_URL}
@@ -191,7 +197,9 @@ Project: ${PROJECT_NAME}
 Current phase: ${CURRENT_PHASE}
 Workspace: pnpm monorepo
 API package: ${API_PACKAGE} (${API_DIR})
-Stack: NestJS, TypeScript, Prisma, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Alloy, Loki, Tempo, cAdvisor
+Web package: ${WEB_PACKAGE} (${WEB_DIR})
+Stack: Next.js, NestJS, TypeScript, Prisma, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Alloy, Loki, Tempo, cAdvisor
+Web: ${WEB_URL}
 API: ${API_URL}
 Grafana: ${GRAFANA_URL} (admin/admin)
 Prometheus: ${PROMETHEUS_URL}
@@ -293,12 +301,28 @@ skill_dev_api() {
   pnpm --filter "${API_PACKAGE}" dev
 }
 
+skill_web() {
+  pnpm --filter "${WEB_PACKAGE}" dev
+}
+
+skill_storybook() {
+  pnpm --filter "${WEB_PACKAGE}" storybook
+}
+
 skill_build_api() {
   pnpm --filter "${API_PACKAGE}" build
 }
 
+skill_build_web() {
+  pnpm --filter "${WEB_PACKAGE}" build
+}
+
 skill_test_api() {
   pnpm --filter "${API_PACKAGE}" test
+}
+
+skill_test_web() {
+  pnpm --filter "${WEB_PACKAGE}" test
 }
 
 skill_test() {
@@ -314,11 +338,15 @@ skill_test_cov() {
 }
 
 skill_lint() {
-  pnpm --filter "${API_PACKAGE}" lint
+  pnpm lint
 }
 
 skill_typecheck() {
-  pnpm --filter "${API_PACKAGE}" typecheck
+  pnpm typecheck
+}
+
+skill_playwright() {
+  pnpm --filter "${WEB_PACKAGE}" playwright
 }
 
 skill_format() {
@@ -480,12 +508,18 @@ skill_verify_workspace() {
 
   _run_check "pnpm workspace file" test -f pnpm-workspace.yaml
   _run_check "API package exists" test -f "${API_DIR}/package.json"
+  _run_check "Web package exists" test -f "${WEB_DIR}/package.json"
   _run_check "API package discoverable" bash -c "pnpm -r list --depth -1 | grep -q '${API_PACKAGE}'"
+  _run_check "Web package discoverable" bash -c "pnpm -r list --depth -1 | grep -q '${WEB_PACKAGE}'"
   _run_check "Install state valid" bash -c "pnpm --filter '${API_PACKAGE}' exec node -e \"require('@nestjs/core'); require('@prisma/client')\""
+  _run_check "Web install state valid" bash -c "pnpm --filter '${WEB_PACKAGE}' exec node -e \"require('next'); require('@tanstack/react-query')\""
   _run_check "API build passes" pnpm --filter "${API_PACKAGE}" build
+  _run_check "Web build passes" pnpm --filter "${WEB_PACKAGE}" build
   _run_check "API tests pass" pnpm --filter "${API_PACKAGE}" test
+  _run_check "Web tests pass" pnpm --filter "${WEB_PACKAGE}" test
   _run_check "Docker Compose config valid" docker compose config --quiet
   _run_check "Expected files present" test -f "${API_DIR}/Dockerfile"
+  _run_check "Web Dockerfile present" test -f "${WEB_DIR}/Dockerfile"
   _run_check "Infrastructure paths present" test -f infrastructure/prometheus/prometheus.yml
 
   printf '\nWorkspace verification summary: %d passed, %d failed\n' "${passed}" "${failed}"
@@ -546,10 +580,35 @@ skill_verify() {
   _run_check "PostgreSQL connectivity" docker compose exec -T postgres pg_isready -U food_delivery -d food_delivery
   _run_check "Redis connectivity" bash -c "docker compose exec -T redis redis-cli ping | grep -q PONG"
   _run_check "NestJS health endpoint" bash -c "curl -fsS '${API_URL}/health' | grep -q '\"status\":\"ok\"'"
+  _run_check "Next.js frontend" bash -c "curl -fsS '${WEB_URL}' | grep -q 'Food Delivery'"
   _run_check "Prometheus scraping" bash -c "curl -fsS '${PROMETHEUS_URL}/api/v1/query?query=up%7Bjob%3D%22food-delivery-api%22%7D' | grep -q '\"status\":\"success\"'"
   _run_check "Grafana availability" bash -c "curl -fsS '${GRAFANA_URL}/api/health' | grep -q '\"database\"'"
 
   printf '\nVerification summary: %d passed, %d failed\n' "${passed}" "${failed}"
+
+  if [ "${failed}" -gt 0 ]; then
+    return 1
+  fi
+}
+
+skill_verify_web() {
+  local passed=0
+  local failed=0
+
+  _run_check() {
+    if _skill_check "$@"; then
+      passed=$((passed + 1))
+    else
+      failed=$((failed + 1))
+    fi
+  }
+
+  _run_check "Web lint passes" pnpm --filter "${WEB_PACKAGE}" lint
+  _run_check "Web typecheck passes" pnpm --filter "${WEB_PACKAGE}" typecheck
+  _run_check "Web build passes" pnpm --filter "${WEB_PACKAGE}" build
+  _run_check "Web tests pass" pnpm --filter "${WEB_PACKAGE}" test
+
+  printf '\nWeb verification summary: %d passed, %d failed\n' "${passed}" "${failed}"
 
   if [ "${failed}" -gt 0 ]; then
     return 1

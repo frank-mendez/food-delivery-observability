@@ -1,4 +1,22 @@
 services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: food-delivery-web
+    mem_limit: 512m
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+      NEXT_TELEMETRY_DISABLED: 1
+      API_BASE_URL: ${WEB_API_BASE_URL:-http://api:4000}
+    ports:
+      - '${WEB_HOST_PORT:-3001}:3001'
+    depends_on:
+      api:
+        condition: service_started
+
   api:
     build:
       context: .

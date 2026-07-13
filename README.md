@@ -1,14 +1,18 @@
 # Food Delivery Observability
 
-Production-style local food delivery backend for learning NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Grafana Alloy, Loki, Tempo, OpenTelemetry, BullMQ, and Prisma.
+Production-style local food delivery platform for learning Next.js, NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Grafana Alloy, Loki, Tempo, OpenTelemetry, BullMQ, and Prisma.
 
-The repository is now a lightweight pnpm monorepo. The existing NestJS API lives in `apps/api`, observability and database infrastructure config lives in `infrastructure`, and `apps/web` is reserved for the future Phase 4 Next.js frontend. No frontend has been scaffolded yet.
+The repository is a lightweight pnpm monorepo. The NestJS API lives in `apps/api`, the Phase 4 Next.js frontend lives in `apps/web`, and observability plus database infrastructure config lives in `infrastructure`.
 
 ## Architecture
 
 ```text
-curl / clients
+browser / clients
     |
+    v
+apps/web Next.js App Router :3001
+    |
+    | /api/backend proxy
     v
 apps/api NestJS API :4000
     |-----------------> PostgreSQL :5432
@@ -36,7 +40,7 @@ Alloy OTLP :4317/:4318 -> Tempo :3200 -> Grafana
 
 ```text
 apps/api/                 NestJS API, Prisma schema, migrations, tests, Dockerfile
-apps/web/                 Phase 4 frontend placeholder only
+apps/web/                 Next.js App Router frontend, Storybook, Vitest, Playwright, Dockerfile
 infrastructure/alloy/     Alloy log and trace pipeline config
 infrastructure/grafana/   Provisioned datasources and dashboards
 infrastructure/loki/      Loki local config
@@ -61,7 +65,7 @@ pnpm install
 pnpm prisma:generate
 ```
 
-The root package is an orchestrator. API runtime and development dependencies are owned by `apps/api/package.json`.
+The root package is an orchestrator. API runtime and development dependencies are owned by `apps/api/package.json`; frontend dependencies are owned by `apps/web/package.json`.
 
 ## API Development
 
@@ -83,12 +87,54 @@ pnpm build
 pnpm test
 ```
 
+## Frontend
+
+Phase 4 is implemented in `apps/web` as a production-style Next.js App Router application. It uses TypeScript, Tailwind CSS, shadcn-style primitives, TanStack Query, Zustand, React Hook Form, Zod, Storybook, Vitest, React Testing Library, Playwright, Lucide icons, and Framer Motion.
+
+The app includes customer ordering flows, restaurant operator views, rider delivery views, a development role switcher, dark mode, loading/error/empty states, and reusable UI components for cards, metrics, status badges, timelines, buttons, and feedback states.
+
+### Running Web
+
+```bash
+pnpm dev
+pnpm dev:web
+pnpm build:web
+pnpm lint:web
+pnpm typecheck:web
+pnpm test:web
+pnpm playwright
+pnpm storybook
+```
+
+`pnpm dev` is an alias for `pnpm dev:web`. The local web app runs on `http://localhost:3001` and proxies backend calls through `/api/backend`. In Docker, the web service uses `API_BASE_URL=http://api:4000` by default.
+
+### Frontend Routes
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Landing and stack health overview |
+| `/restaurants` | Restaurant listing, search, and filters |
+| `/restaurants/:restaurantId` | Restaurant details and menu browsing |
+| `/cart` | Shopping cart |
+| `/checkout` | Customer checkout and order creation |
+| `/orders` | Customer order history |
+| `/orders/:orderId` | Order tracking |
+| `/profile` | Customer profile |
+| `/restaurant` | Restaurant portal dashboard |
+| `/restaurant/orders` | Incoming and active restaurant orders |
+| `/restaurant/menu` | Menu listing and edit form |
+| `/restaurant/analytics` | Restaurant analytics cards |
+| `/rider` | Rider portal and available deliveries |
+| `/rider/current` | Current delivery |
+| `/rider/history` | Delivery history |
+
 ## Docker
 
 ```bash
 docker compose up --build
 docker compose down
 docker compose logs -f api
+docker compose logs -f web
 ```
 
 Root script aliases:
@@ -100,7 +146,7 @@ pnpm docker:down
 pnpm docker:logs
 ```
 
-The API image is built from the monorepo root with `apps/api/Dockerfile` so Docker can access `pnpm-lock.yaml`, `pnpm-workspace.yaml`, the root package, and `apps/api/package.json`.
+The API and web images are built from the monorepo root with `apps/api/Dockerfile` and `apps/web/Dockerfile` so Docker can access `pnpm-lock.yaml`, `pnpm-workspace.yaml`, the root package, and each workspace package manifest.
 
 The API container runs Prisma migrations and seed data on startup.
 
@@ -127,6 +173,7 @@ Do not commit real `.env` files.
 
 | Service | Default host URL |
 | --- | --- |
+| Web | http://localhost:3001 |
 | API | http://localhost:4000 |
 | Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
@@ -148,6 +195,7 @@ Container-to-container networking does not use these host ports. The API and obs
 | Service | Variable | Default host port | Container port |
 | --- | --- | ---: | ---: |
 | API | `API_HOST_PORT` | 4000 | 4000 |
+| Web | `WEB_HOST_PORT` | 3001 | 3001 |
 | PostgreSQL | `POSTGRES_HOST_PORT` | 5432 | 5432 |
 | Redis | `REDIS_HOST_PORT` | 6379 | 6379 |
 | Prometheus | `PROMETHEUS_HOST_PORT` | 9090 | 9090 |
@@ -199,6 +247,8 @@ Seeded API users all use password `Password123!`:
 | Customer | `customer@example.com` |
 | Restaurant Owner | `owner@example.com` |
 | Rider | `rider@example.com` |
+
+The web app uses these seeded accounts through a development-only role switcher. It stores the selected role locally and logs in against the real backend, so browse, checkout, restaurant order, and rider delivery actions generate normal API metrics, logs, and traces.
 
 ## API Endpoints
 
@@ -278,6 +328,11 @@ skill_verify_ports
 skill_verify_workspace
 skill_verify
 skill_verify_observability
+skill_web
+skill_storybook
+skill_test_web
+skill_playwright
+skill_verify_web
 skill_metrics
 skill_trace
 skill_dashboards
@@ -289,13 +344,26 @@ The script can also be executed directly:
 ./skills.sh skill_info
 ```
 
+## Storybook
+
+Reusable frontend components have Storybook coverage for button variants, restaurant cards, menu cards, metric cards, status badges, timelines, empty states, and error states.
+
+```bash
+pnpm storybook
+pnpm build-storybook
+```
+
 ## Testing
 
 ```bash
 pnpm test
+pnpm test:web
+pnpm playwright
 pnpm test:cov
 pnpm test:e2e
 ```
+
+`pnpm test:web` runs Vitest and React Testing Library with coverage thresholds above 80%. `pnpm playwright` runs the Phase 4 customer flow and role-switcher browser tests across desktop and mobile projects.
 
 E2E tests require PostgreSQL and Redis:
 
@@ -319,6 +387,9 @@ Run the seeded login requests first, then `GET /restaurants` so the collection c
 - Local Redis uses `6379`: set `REDIS_HOST_PORT=16379` in `.env`; containers still use `redis:6379` internally.
 - Another Docker container publishes the same port: inspect it with `docker ps` and choose a different `*_HOST_PORT` value.
 - API Docker build cannot find workspace files: confirm the Compose API build context is the repo root and the Dockerfile path is `apps/api/Dockerfile`.
+- Web Docker build cannot find workspace files: confirm the Compose web build context is the repo root and the Dockerfile path is `apps/web/Dockerfile`.
+- Web frontend cannot reach the API in Docker: check the web service `API_BASE_URL` value; the default should be `http://api:4000`.
+- Web frontend cannot reach a host-run API: set `NEXT_PUBLIC_API_BASE_URL` only when intentionally bypassing the built-in `/api/backend` proxy.
 - Grafana has no dashboards: check `docker compose logs grafana` and verify `infrastructure/grafana/provisioning` is mounted.
 - Loki has no API logs: hit `http://localhost:4000/health`, then check `docker compose logs alloy` and `./skills.sh skill_loki`.
 - Tempo has no traces: hit `http://localhost:4000/health`, wait a few seconds, then run `./skills.sh skill_trace`.

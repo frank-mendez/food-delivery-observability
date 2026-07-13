@@ -2,18 +2,31 @@
 
 ## Project Summary
 
-`food-delivery-observability` is a local Docker-based learning project for a production-like food delivery backend with complete local observability. The repository is now a lightweight pnpm monorepo.
+`food-delivery-observability` is a local Docker-based learning project for a production-like food delivery platform with a Next.js frontend, NestJS backend, and complete local observability. The repository is a lightweight pnpm monorepo.
 
 ## Current Phase
 
-Phase 3 backend expansion is implemented in `apps/api`. Phase 4 frontend work is intentionally deferred; `apps/web` is only a placeholder.
+Phase 4 frontend implementation is complete in `apps/web`. The NestJS backend remains in `apps/api`, and the Docker observability stack remains under `infrastructure`.
 
 ## Tech Stack
 
 - pnpm workspaces
 - Node.js LTS
+- Next.js App Router
 - NestJS
 - TypeScript
+- Tailwind CSS
+- shadcn-style UI primitives
+- TanStack Query
+- Zustand
+- React Hook Form
+- Zod
+- Storybook
+- Vitest
+- React Testing Library
+- Playwright
+- Lucide Icons
+- Framer Motion
 - PostgreSQL
 - Prisma ORM
 - Redis
@@ -45,7 +58,15 @@ Phase 3 backend expansion is implemented in `apps/api`. Phase 4 frontend work is
 │   │   ├── tsconfig.json
 │   │   └── tsconfig.build.json
 │   └── web/
-│       └── README.md
+│       ├── .storybook/
+│       ├── e2e/
+│       ├── public/
+│       ├── src/
+│       ├── Dockerfile
+│       ├── package.json
+│       ├── playwright.config.ts
+│       ├── tsconfig.json
+│       └── vitest.config.ts
 ├── infrastructure/
 │   ├── alloy/
 │   ├── grafana/
@@ -69,10 +90,12 @@ Do not create empty architecture folders. `packages/contracts` is deferred until
 
 - Root `package.json` is an orchestrator only.
 - API runtime and development dependencies belong in `apps/api/package.json`.
+- Web runtime and development dependencies belong in `apps/web/package.json`.
 - NestJS, Prisma, Jest, TypeScript, and ESLint API config belong in `apps/api`.
+- Next.js, React, Storybook, Vitest, Playwright, Tailwind, and frontend ESLint config belong in `apps/web`.
 - Observability and database infrastructure config belongs in `infrastructure`.
 - Do not import NestJS, Prisma-generated types, or React into future shared contract packages.
-- Do not scaffold Next.js or implement frontend business features until Phase 4 is explicitly requested.
+- Keep frontend business features in `apps/web`; do not rewrite backend code for UI-only work unless a minimal API change is explicitly required.
 
 ## Commands
 
@@ -81,13 +104,27 @@ Root workspace commands:
 ```bash
 pnpm install
 pnpm prisma:generate
+pnpm dev
 pnpm dev:api
+pnpm dev:web
 pnpm lint
+pnpm lint:api
+pnpm lint:web
 pnpm typecheck
+pnpm typecheck:api
+pnpm typecheck:web
 pnpm build
+pnpm build:api
+pnpm build:web
 pnpm test
+pnpm test:api
+pnpm test:web
 pnpm test:cov
+pnpm test:cov:web
 pnpm test:e2e
+pnpm playwright
+pnpm storybook
+pnpm build-storybook
 pnpm verify
 pnpm docker:build
 pnpm docker:up
@@ -112,15 +149,38 @@ pnpm prisma:migrate:deploy
 pnpm prisma:seed
 ```
 
+Web-local commands:
+
+```bash
+cd apps/web
+pnpm dev
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm storybook
+pnpm build-storybook
+pnpm playwright
+```
+
 Helper commands:
 
 ```bash
 source ./skills.sh
 skill_info
 skill_workspace
+skill_ports
+skill_check_ports
+skill_verify_ports
 skill_verify_workspace
 skill_verify
 skill_verify_observability
+skill_web
+skill_storybook
+skill_build_web
+skill_test_web
+skill_playwright
+skill_verify_web
 skill_metrics
 skill_trace
 skill_dashboards
@@ -133,7 +193,13 @@ skill_dashboards
 - Keep controllers thin and put business logic in services.
 - Use Prisma for database access.
 - Validate request bodies with DTOs and Nest validation pipes.
-- Do not add authentication, payments, BullMQ, rider, notification, or frontend changes unless the requested phase includes them. Phase 3 already includes these backend capabilities; avoid unrelated expansion.
+- Frontend uses Feature First Architecture under `apps/web/src/features`.
+- Keep browser-facing API calls in `apps/web/src/lib/api` repositories and feature hooks. Do not put raw `fetch` calls in UI components.
+- Use TanStack Query for server state.
+- Use Zustand only for cart, role/session, sidebar, theme, and filter state.
+- Use React Hook Form and Zod for checkout, profile, menu, and future form validation.
+- The development role switcher is local/demo-only. Do not present it as production authentication.
+- Do not add authentication, payments, BullMQ, rider, notification, or frontend/backend scope outside the requested phase. Phase 3 already includes these backend capabilities and Phase 4 includes the frontend.
 - Do not add Turborepo, Nx, Kubernetes, micro-frontends, or extra package abstractions.
 
 ## Observability Rules
@@ -156,32 +222,39 @@ skill_dashboards
 
 - Keep `docker-compose.yml` at the root.
 - The API build context is the monorepo root and the Dockerfile path is `apps/api/Dockerfile`.
+- The web build context is the monorepo root and the Dockerfile path is `apps/web/Dockerfile`.
 - The API image must be able to access `pnpm-lock.yaml`, `pnpm-workspace.yaml`, root `package.json`, and `apps/api/package.json`.
+- The web image must be able to access `pnpm-lock.yaml`, `pnpm-workspace.yaml`, root `package.json`, and `apps/web/package.json`.
 - Infrastructure mounts must point to `infrastructure/*`.
 - Do not copy local `node_modules`, coverage, or build output into Docker images.
 - The API container runs migrations and seed data on startup for one-command local setup.
+- The web container runs Next.js standalone output and reaches the API through internal `API_BASE_URL=http://api:4000` by default.
 
 ## Host Port Configuration Rules
 
 - Published Docker host ports must be configurable with root `.env` variables and defaults in `docker-compose.yml`.
-- Keep Docker-internal service ports stable and standard: PostgreSQL `5432`, Redis `6379`, API `4000`, Prometheus `9090`, Grafana `3000`, Loki `3100`, Tempo `3200`, Alloy UI `12345`, Alloy OTLP `4317`/`4318`, and cAdvisor `8080`.
+- Keep Docker-internal service ports stable and standard: PostgreSQL `5432`, Redis `6379`, API `4000`, Web `3001`, Prometheus `9090`, Grafana `3000`, Loki `3100`, Tempo `3200`, Alloy UI `12345`, Alloy OTLP `4317`/`4318`, and cAdvisor `8080`.
 - Do not hard-code machine-specific alternate host ports in Compose files or docs.
 - Do not use host-port overrides for container-to-container communication.
 - Internal service URLs must keep Docker service names and container ports, such as `postgres:5432`, `redis:6379`, `api:4000`, `loki:3100`, `tempo:3200`, and `alloy:4318`.
-- Use host-port variables only for published localhost access, such as `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`, `API_HOST_PORT`, `GRAFANA_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `LOKI_HOST_PORT`, `TEMPO_HOST_PORT`, `ALLOY_HOST_PORT`, `ALLOY_OTLP_GRPC_HOST_PORT`, `ALLOY_OTLP_HTTP_HOST_PORT`, and `CADVISOR_HOST_PORT`.
+- Use host-port variables only for published localhost access, such as `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`, `API_HOST_PORT`, `WEB_HOST_PORT`, `GRAFANA_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `LOKI_HOST_PORT`, `TEMPO_HOST_PORT`, `ALLOY_HOST_PORT`, `ALLOY_OTLP_GRPC_HOST_PORT`, `ALLOY_OTLP_HTTP_HOST_PORT`, and `CADVISOR_HOST_PORT`.
 - Verify port configuration with `source ./skills.sh; skill_ports`, `skill_check_ports`, and `skill_verify_ports`.
 
 ## Testing Expectations
 
 - Configure and use Jest.
+- Configure and use Vitest plus React Testing Library for frontend unit/component tests.
+- Configure and use Playwright for frontend browser flows.
 - Unit-test service-layer business logic.
 - Unit-test logging, metrics, and tracing helpers.
+- Unit-test frontend stores, schemas, reusable components, role switching, cart behavior, checkout validation, and order view helpers.
 - Use Supertest for endpoint integration tests.
 - Use the separate `food_delivery_test` PostgreSQL database for e2e tests.
 - Mock external dependencies in unit tests.
 - Generate coverage with `pnpm test:cov`.
+- Keep web coverage at 80% or higher through `pnpm test:web`.
 - Do not reduce existing coverage thresholds.
-- Run lint, typecheck, tests, and build after meaningful code changes.
+- Run lint, typecheck, tests, build, and relevant Playwright/Docker checks after meaningful code changes.
 
 ## Generated Directory Rules
 
@@ -230,19 +303,27 @@ Workflow priorities:
 ## Context Handoff
 
 Current status:
-The repository is a lightweight pnpm monorepo. The NestJS API lives under `apps/api`, observability and database infrastructure configuration lives under `infrastructure`, and `apps/web` is still only a Phase 4 placeholder. No frontend features have been scaffolded.
+- The repository is a lightweight pnpm monorepo with `apps/api` for the NestJS backend, `apps/web` for the Phase 4 Next.js frontend, and `infrastructure` for Docker observability and database config.
+- Phase 4 frontend is implemented and verified. It is no longer a placeholder.
+- The web app is a Next.js App Router application using TypeScript, Tailwind CSS, shadcn-style primitives, TanStack Query, Zustand, React Hook Form, Zod, Storybook, Vitest, React Testing Library, Playwright, Lucide icons, and Framer Motion.
 
-Port configurability work completed:
-- `docker-compose.yml` now uses environment-variable defaults for every published host port while preserving stable container ports.
-- Added host-port defaults to root `.env.example`.
-- Updated `apps/api/.env.example` to clarify host-run API and e2e localhost ports.
-- Updated `README.md` with Host Port Configuration, default mappings, override examples, and troubleshooting.
-- Updated `skills.sh` with `skill_ports`, `skill_check_ports`, and `skill_verify_ports`.
-- `skill_info`, `skill_verify`, and observability helper URLs now respect effective host ports from shell env or the ignored root `.env`.
-- `skill_up` and `skill_rebuild` print port conflict warnings before starting Compose.
+Phase 4 frontend completed:
+- Customer flows: landing, restaurant listing, restaurant search/filtering, restaurant details, menu browsing, cart, checkout, order creation, order history, order tracking, and profile.
+- Restaurant flows: portal dashboard, incoming/active order views, accept/reject/preparing/ready actions where backend support exists, menu listing/edit form, and analytics cards.
+- Rider flows: available deliveries, accept/status actions where backend support exists, current delivery, and delivery history.
+- Development-only role switcher persists the selected role locally and logs into seeded backend accounts.
+- Shared app shell includes responsive desktop sidebar, mobile bottom navigation, theme toggle, cart badge, toasts, loading/error/empty states, and dark mode.
+- API access is centralized under `apps/web/src/lib/api` repositories with query keys, typed fetch, request IDs, and error normalization. UI components do not perform raw fetches.
+- Storybook stories cover button variants, restaurant cards, menu cards, metric cards, status badges, timelines, empty states, and error states.
+- Vitest/RTL tests cover restaurant listing, cart store, checkout schema, role switcher, order view helpers, shared components, menu cards, order cards, profile schema, menu item schema, status badges, timelines, and session/cart stores.
+- Playwright covers the customer browse/cart/checkout/order-tracking flow and development role switching on desktop and mobile.
+- `apps/web/Dockerfile` builds Next standalone output. `docker-compose.yml` now includes a `web` service published at `${WEB_HOST_PORT:-3001}:3001`.
+- Root scripts now include web commands: `dev:web`, `build:web`, `test:web`, `test:cov:web`, `lint:web`, `typecheck:web`, `storybook`, `build-storybook`, and `playwright`.
+- `skills.sh` now reports Phase 4 and includes `skill_web`, `skill_storybook`, `skill_build_web`, `skill_test_web`, `skill_playwright`, and `skill_verify_web`.
 
 Configurable host-port variables:
 - `API_HOST_PORT=4000`
+- `WEB_HOST_PORT=3001`
 - `POSTGRES_HOST_PORT=5432`
 - `REDIS_HOST_PORT=6379`
 - `PROMETHEUS_HOST_PORT=9090`
@@ -255,6 +336,7 @@ Configurable host-port variables:
 - `CADVISOR_HOST_PORT=8081`
 
 Internal networking confirmation:
+- Web proxy target defaults to `API_BASE_URL=http://api:4000` in Docker.
 - API database URL remains `postgres:5432`.
 - API Redis config remains `REDIS_HOST=redis` and `REDIS_PORT=6379`.
 - API trace export remains `http://alloy:4318`.
@@ -264,6 +346,13 @@ Internal networking confirmation:
 
 Important path changes:
 - API package: `apps/api/package.json`
+- Web package: `apps/web/package.json`
+- Web source: `apps/web/src`
+- Web routes: `apps/web/src/app`
+- Web API client/repositories: `apps/web/src/lib/api`
+- Web tests: `apps/web/src/**/tests` and `apps/web/e2e`
+- Web Storybook: `apps/web/.storybook`
+- Web Dockerfile: `apps/web/Dockerfile`
 - Prisma schema: `apps/api/prisma/schema.prisma`
 - Prisma migrations: `apps/api/prisma/migrations`
 - API Dockerfile: `apps/api/Dockerfile`
@@ -277,37 +366,32 @@ Important path changes:
 - Tempo config: `infrastructure/tempo/tempo.yml`
 - PostgreSQL test database init: `infrastructure/postgres/init-test-db.sql`
 
-Verification results for port configurability:
-- Baseline `source ./skills.sh; skill_verify_workspace`: passed, 9 passed and 0 failed.
-- Baseline `source ./skills.sh; skill_verify`: failed because the stack was not running, 0 passed and 5 failed.
-- Baseline port inspection showed `127.0.0.1:5432` already listening on this machine.
-- `pnpm install`: passed.
-- `pnpm lint`: passed.
-- `pnpm typecheck`: passed.
-- `pnpm build`: passed.
-- `pnpm test`: passed, 10 suites and 22 tests.
-- `docker compose --env-file /dev/null config`: resolved default Postgres `5432:5432` and Redis `6379:6379`.
-- `source ./skills.sh; skill_check_ports` before startup with local `.env` overrides: passed, all configured host ports available.
-- Active ignored local `.env` overrides used for runtime verification: `POSTGRES_HOST_PORT=15432` and `REDIS_HOST_PORT=16379`.
-- `docker compose config`: passed and resolved Postgres `15432:5432`, Redis `16379:6379`, and default mappings for the other services.
-- `docker compose build`: passed.
-- `docker compose up -d`: passed with no Compose YAML edits.
-- `docker compose ps`: all services were up; Postgres published `15432->5432`, Redis published `16379->6379`, and cAdvisor became healthy after startup.
+Verification results for Phase 4:
+- Baseline before frontend work: `source ./skills.sh; skill_info` reported Phase 3; `skill_verify` passed 5/5; `skill_verify_workspace` passed 9/9.
+- `pnpm install`: passed. The lockfile was already current; Prisma client generation was required afterward for API lint/type resolution.
+- `pnpm prisma:generate`: passed.
+- `pnpm lint`: passed for API and web.
+- `pnpm typecheck`: passed for API and web.
+- `pnpm build`: passed for API and web. Next produced routes for landing, restaurants, cart, checkout, orders, profile, restaurant portal, rider portal, and `/api/backend`.
+- `pnpm test`: passed. API: 10 suites and 23 tests. Web: 13 files and 26 tests.
+- `pnpm test:web`: passed with web coverage at 100% statements, 84.37% branches, 100% functions, and 100% lines.
+- `pnpm playwright`: passed, 4 tests across desktop and mobile.
+- `pnpm verify`: passed, including lint, typecheck, build, and tests.
+- `docker compose build`: passed for API and web images.
+- `docker compose up -d`: passed and started the new `food-delivery-web` container.
+- `docker compose ps`: all services were up; web published `3001->3001`, Postgres published `15432->5432`, Redis published `16379->6379`.
 - API health check passed: `GET http://localhost:4000/health` returned API, PostgreSQL, and Redis status `ok`.
-- PostgreSQL connectivity passed with `docker compose exec -T postgres pg_isready -U food_delivery -d food_delivery`.
-- Redis connectivity passed with `docker compose exec -T redis redis-cli ping`.
-- Prometheus API query for `up{job="food-delivery-api"}` returned `1`.
-- Grafana health returned database `ok`.
-- Loki ingestion check passed with a narrowed `{container="food-delivery-api"}` query showing current API `/health` and `/metrics` logs.
-- Tempo ingestion check passed and returned traces for `service.name=food-delivery-api`.
-- `source ./skills.sh; skill_verify_ports`: passed, 26 passed and 0 failed.
-- `source ./skills.sh; skill_verify_workspace`: passed, 9 passed and 0 failed.
-- `source ./skills.sh; skill_verify`: passed, 5 passed and 0 failed.
-- `source ./skills.sh; skill_verify_observability`: first run failed while Grafana datasource health returned startup 503s; direct datasource checks then passed, and rerun passed with 7 passed and 0 failed.
-- `pnpm test:cov --runInBand`: tests passed, but coverage thresholds failed with 41.09% statements, 42.81% branches, 36.68% functions, and 39.65% lines. This remains the known Phase 3 coverage gap.
+- Web root check passed: `GET http://localhost:3001` returned HTTP 200.
+- Live backend restaurant listing passed: `GET http://localhost:4000/restaurants` returned seeded restaurants and menu items.
+- Live browser smoke test passed with `npx agent-browser`: restaurants loaded from the API, Northstar Burgers menu opened, Classic Cheeseburger was added to cart, checkout loaded customer profile data, order submission succeeded, and the order-tracking page rendered.
+- Mobile responsive smoke test passed at 390x844 with clean compact header, restaurant list, and bottom navigation.
+- `source ./skills.sh; skill_verify_workspace`: passed, 15 passed and 0 failed.
+- `source ./skills.sh; skill_verify`: passed, 6 passed and 0 failed.
+- `source ./skills.sh; skill_verify_web`: passed, 4 passed and 0 failed.
+- `source ./skills.sh; skill_verify_ports`: passed, 28 passed and 0 failed.
 
 Known issues:
-- Coverage thresholds still fail until focused Phase 3 unit tests are added.
+- Root `pnpm test:cov` still targets API coverage only and remains the known Phase 3 coverage gap unless focused backend unit tests are added.
 - The default host PostgreSQL port `localhost:5432` remains occupied on this machine. Use `.env` host-port overrides such as `POSTGRES_HOST_PORT=15432`.
 - If overriding `POSTGRES_HOST_PORT` or `REDIS_HOST_PORT`, host-run API/e2e commands must mirror those localhost ports in `DATABASE_URL`, `TEST_DATABASE_URL`, or `REDIS_PORT`.
 - E2E tests can still share Redis with the live stack when both are run together. Clear Redis after e2e or isolate/namespace cache keys to avoid live cache entries pointing at test database IDs.
@@ -315,13 +399,17 @@ Known issues:
 - Loki `/ready` returned 503 during this run even while log query ingestion worked. Tempo, Prometheus, Grafana health, and settled Grafana datasource checks passed.
 - Phase 3 dashboard and alert expansion for auth, payment, queue, cache, rider, notification, and domain-event metrics is still pending.
 - README still documents dashboard behavior but does not include real captured screenshots.
+- Worktree note: `apps/api/src/restaurants/restaurants.controller.ts`, `restaurants.service.ts`, and `restaurants.service.spec.ts` were already modified before this Phase 4 frontend work. Do not revert them unless the user asks.
 
 Important decisions:
 - Root `package.json` has no application dependencies.
 - `apps/api/package.json` owns API runtime dependencies and API tooling.
+- `apps/web/package.json` owns frontend runtime dependencies and frontend tooling.
 - The Docker API image uses the monorepo root as build context and runs from `/repo/apps/api`.
-- `apps/web` contains only documentation for the future Phase 4 Next.js app.
+- The Docker web image uses the monorepo root as build context and runs Next standalone output from `/repo/apps/web/server.js`.
 - `packages/contracts` was not created to avoid placeholder package churn and backend DTO rewrites.
+- Frontend data access uses the Next proxy route `/api/backend` by default; Docker config points that proxy to `http://api:4000`.
+- The role switcher remains development-only and uses the seeded backend accounts instead of fake auth state.
 - Metrics keep the `food_delivery_` prefix and avoid high-cardinality labels.
 - Logs may include operational fields, but metric labels must not include user/order/restaurant/menu item IDs.
 - JWT access tokens default to 15 minutes and refresh tokens default to 7 days.
@@ -339,6 +427,8 @@ How to run the app:
 docker compose up --build
 ```
 
+Open the web app at `http://localhost:3001` and the API at `http://localhost:4000`.
+
 If a default host port is occupied, set overrides in the ignored root `.env` instead of editing Compose YAML:
 
 ```bash
@@ -346,14 +436,12 @@ POSTGRES_HOST_PORT=15432
 REDIS_HOST_PORT=16379
 ```
 
-Phase 4 readiness:
-`apps/web/README.md` reserves the web app location and documents that the future frontend should use Next.js. No frontend package or business functionality exists yet. The backend stack is reproducible on this machine with `.env` host-port overrides and no Compose file edits.
-
 Next recommended task:
-Close remaining Phase 3 Definition of Done gaps before Phase 4: add focused unit tests until coverage passes, scope Alloy Docker log discovery to this Compose project, isolate Redis/cache state for e2e tests, and expand Grafana dashboards plus Prometheus alerts for Phase 3 metric families.
+- Improve the remaining Phase 3 backend gaps: add focused backend unit tests until root API coverage passes, scope Alloy Docker log discovery to this Compose project, isolate Redis/cache state for e2e tests, and expand Grafana dashboards plus Prometheus alerts for Phase 3 metric families.
+- Optional Phase 4 follow-up: add visual regression snapshots or captured README screenshots now that the app is running.
 
 Last updated:
-2026-07-13 23:37 PHT/UTC+08
+2026-07-14 00:35 PHT/UTC+08
 
 At the end of every major task, update this Context Handoff section so the next agent can continue without reading the full conversation.
 
@@ -361,12 +449,17 @@ At the end of every major task, update this Context Handoff section so the next 
 
 - The repository is a valid pnpm workspace.
 - The NestJS API lives under `apps/api`.
+- The Next.js frontend lives under `apps/web`.
 - Observability configuration lives under `infrastructure`.
 - The root directory stays clean and understandable.
-- Root and API dependencies are correctly separated.
+- Root, API, and web dependencies are correctly separated.
 - `docker compose up --build` starts all services when required host ports are free.
+- `GET http://localhost:3001` serves the frontend.
 - `GET http://localhost:4000/health` works.
 - `GET http://localhost:4000/restaurants` returns seeded restaurants and menu items.
+- The frontend can browse restaurants, view menus, add items to cart, check out, and show order tracking.
+- The frontend includes restaurant portal and rider portal routes.
+- The development role switcher persists locally and uses seeded backend accounts.
 - Authenticated `POST http://localhost:4000/orders` creates a payment-pending order.
 - `GET http://localhost:4000/metrics` exposes Prometheus metrics.
 - Prometheus scrapes API and cAdvisor targets successfully.
@@ -378,5 +471,6 @@ At the end of every major task, update this Context Handoff section so the next 
 - README explains setup, monorepo layout, endpoints, observability architecture, ports, metrics, logs, traces, dashboards, alerts, and troubleshooting.
 - `AGENTS.md` includes token-saving rules and current context handoff.
 - `skills.sh` is executable and documents reusable helper commands.
-- Unit tests, e2e tests with a valid test database URL, lint, typecheck, and build pass.
+- API unit tests, API e2e tests with a valid test database URL, web unit/component tests, Playwright browser tests, lint, typecheck, and build pass.
+- Web coverage remains at or above 80%.
 - Coverage passes once the known Phase 3 coverage gap is closed.

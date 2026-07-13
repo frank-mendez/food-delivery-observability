@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 24 95% 53%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 210 40% 93%;
+  --muted-foreground: 215 20% 35%;
+  --accent: 160 84% 33%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 43%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 86%;
+  --input: 214 32% 86%;
+  --ring: 221 83% 53%;
+  --radius: 8px;
+}
+
+.dark {
+  --background: 222 45% 8%;
+  --foreground: 210 40% 96%;
+  --card: 222 39% 12%;
+  --card-foreground: 210 40% 96%;
+  --popover: 222 39% 12%;
+  --popover-foreground: 210 40% 96%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 24 95% 53%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 217 33% 18%;
+  --muted-foreground: 215 20% 74%;
+  --accent: 158 64% 45%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 72% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 217 33% 24%;
+  --input: 217 33% 24%;
+  --ring: 217 91% 60%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  min-height: 100%;
+  background: hsl(var(--background));
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    linear-gradient(90deg, hsl(var(--border) / 0.28) 1px, transparent 1px),
+    linear-gradient(180deg, hsl(var(--border) / 0.24) 1px, transparent 1px),
+    hsl(var(--background));
+  background-size: 32px 32px;
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+button,
+a {
+  cursor: pointer;
+}
+
+button:disabled,
+a[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: hsl(var(--secondary) / 0.28);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.operational-band {
+  background:
+    linear-gradient(135deg, hsl(var(--primary) / 0.12), transparent 32%),
+    linear-gradient(315deg, hsl(var(--secondary) / 0.12), transparent 36%),
+    hsl(var(--card));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
