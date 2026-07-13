@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/api/Dockerfile
     container_name: food-delivery-api
     mem_limit: 512m
     environment:
@@ -47,7 +47,7 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro
+      - ./infrastructure/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U food_delivery -d food_delivery']
       interval: 5s
@@ -78,8 +78,8 @@ services:
     ports:
       - '9090:9090'
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
       - prometheus_data:/prometheus
     depends_on:
       api:
@@ -95,7 +95,7 @@ services:
     ports:
       - '3100:3100'
     volumes:
-      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ./infrastructure/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
 
   tempo:
@@ -107,7 +107,7 @@ services:
     ports:
       - '3200:3200'
     volumes:
-      - ./tempo/tempo.yml:/etc/tempo.yml:ro
+      - ./infrastructure/tempo/tempo.yml:/etc/tempo.yml:ro
       - tempo_data:/tmp/tempo
 
   alloy:
@@ -123,7 +123,7 @@ services:
       - '4317:4317'
       - '4318:4318'
     volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./infrastructure/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       loki:
@@ -154,8 +154,8 @@ services:
       - '3000:3000'
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       prometheus:
         condition: service_started

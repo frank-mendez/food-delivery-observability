@@ -1,8 +1,8 @@
 # Food Delivery Observability
 
-Production-style food delivery backend for learning NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Grafana Alloy, Loki, Tempo, and OpenTelemetry.
+Production-style local food delivery backend for learning NestJS, PostgreSQL, Redis, Docker Compose, Prometheus, Grafana, Grafana Alloy, Loki, Tempo, OpenTelemetry, BullMQ, and Prisma.
 
-Phase 3 expands the backend into a realistic local food delivery platform with JWT authentication, role-based authorization, customers, restaurant owners, riders, order lifecycle transitions, simulated payments, BullMQ jobs, notifications, Redis caching, domain events, and end-to-end observability.
+The repository is now a lightweight pnpm monorepo. The existing NestJS API lives in `apps/api`, observability and database infrastructure config lives in `infrastructure`, and `apps/web` is reserved for the future Phase 4 Next.js frontend. No frontend has been scaffolded yet.
 
 ## Architecture
 
@@ -10,39 +10,118 @@ Phase 3 expands the backend into a realistic local food delivery platform with J
 curl / clients
     |
     v
-NestJS API :4000
+apps/api NestJS API :4000
     |-----------------> PostgreSQL :5432
     |-----------------> Redis :6379 cache + BullMQ
     |
     | /metrics
     v
-Prometheus :9090 <---------------- cAdvisor :8080
+Prometheus :9090 <---------------- cAdvisor :8081
     |
     v
 Grafana :3000
 
-NestJS JSON stdout logs
+API JSON stdout logs
     |
     v
-Docker logs -> Grafana Alloy :12345 -> Loki :3100 -> Grafana
+Docker logs -> Alloy :12345 -> Loki :3100 -> Grafana
 
-NestJS OpenTelemetry traces
+API OpenTelemetry traces
     |
     v
-Grafana Alloy OTLP :4317/:4318 -> Tempo :3200 -> Grafana
+Alloy OTLP :4317/:4318 -> Tempo :3200 -> Grafana
 ```
 
-## Local Setup
+## Repository Layout
+
+```text
+apps/api/                 NestJS API, Prisma schema, migrations, tests, Dockerfile
+apps/web/                 Phase 4 frontend placeholder only
+infrastructure/alloy/     Alloy log and trace pipeline config
+infrastructure/grafana/   Provisioned datasources and dashboards
+infrastructure/loki/      Loki local config
+infrastructure/postgres/  PostgreSQL init SQL
+infrastructure/prometheus Prometheus scrape config and alert rules
+infrastructure/tempo/     Tempo local config
+postman/                  Local API collection and environment
+```
+
+`packages/contracts` is intentionally not created yet. Shared contracts should be added later only when there are stable framework-neutral request/response types or schemas worth sharing between `apps/api` and `apps/web`.
+
+## Requirements
+
+- Node.js LTS
+- pnpm `10.29.3` through Corepack
+- Docker and Docker Compose
+
+## Install
 
 ```bash
 pnpm install
-pnpm prisma generate
-docker compose up --build
+pnpm prisma:generate
 ```
+
+The root package is an orchestrator. API runtime and development dependencies are owned by `apps/api/package.json`.
+
+## API Development
+
+```bash
+pnpm dev:api
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:cov
+```
+
+Equivalent package-local commands also work from `apps/api`:
+
+```bash
+cd apps/api
+pnpm dev
+pnpm build
+pnpm test
+```
+
+## Docker
+
+```bash
+docker compose up --build
+docker compose down
+docker compose logs -f api
+```
+
+Root script aliases:
+
+```bash
+pnpm docker:build
+pnpm docker:up
+pnpm docker:down
+pnpm docker:logs
+```
+
+The API image is built from the monorepo root with `apps/api/Dockerfile` so Docker can access `pnpm-lock.yaml`, `pnpm-workspace.yaml`, the root package, and `apps/api/package.json`.
 
 The API container runs Prisma migrations and seed data on startup.
 
-If `localhost:5432` is already used by another local PostgreSQL service, stop that service before running the default Compose stack. The repository intentionally maps PostgreSQL to `5432`.
+## Prisma
+
+```bash
+pnpm prisma:generate
+pnpm prisma:migrate
+pnpm prisma:migrate:deploy
+pnpm prisma:seed
+```
+
+Prisma files live in `apps/api/prisma`. API-local Prisma commands also work from `apps/api`.
+
+## Environment
+
+- Root `.env.example` documents the complete local Docker stack.
+- `apps/api/.env.example` documents API-only local development.
+- E2E tests use `TEST_DATABASE_URL` when provided, otherwise they default to `localhost:5432/food_delivery_test`.
+
+Do not commit real `.env` files.
 
 ## Ports
 
@@ -103,211 +182,86 @@ Seeded API users all use password `Password123!`:
 | GET | `/notifications` | Current user's notification history |
 | GET | `/metrics` | Prometheus metrics |
 
-Login and create an order:
+## Observability
 
-```bash
-TOKEN=$(curl -s -X POST http://localhost:4000/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"customer@example.com","password":"Password123!"}' \
-  | node -e "let b='';process.stdin.on('data',c=>b+=c);process.stdin.on('end',()=>console.log(JSON.parse(b).accessToken))")
+Prometheus scrapes API metrics from `api:4000/metrics`, cAdvisor container metrics from `cadvisor:8080`, and Prometheus self metrics.
 
-curl -X POST http://localhost:4000/orders \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -d '{
-    "restaurantId": "replace-with-restaurant-id",
-    "paymentScenario": "success",
-    "items": [
-      { "menuItemId": "replace-with-menu-item-id", "quantity": 2 }
-    ]
-  }'
-```
-
-## Metrics
-
-Prometheus scrapes:
-
-- API metrics from `api:4000/metrics`
-- cAdvisor container metrics from `cadvisor:8080`
-- Prometheus self metrics
-
-Important application metrics:
+Key application metric families include:
 
 - `food_delivery_http_requests_total`
 - `food_delivery_http_request_duration_seconds`
 - `food_delivery_http_active_requests`
-- `food_delivery_orders_created_total`
-- `food_delivery_failed_order_creation_total`
-- `food_delivery_order_creation_duration_seconds`
-- `food_delivery_order_value_dollars`
-- `food_delivery_average_order_value_dollars`
 - `food_delivery_database_query_duration_seconds`
-- `food_delivery_database_connection_pool_connections`
-- `food_delivery_database_connection_status`
-- `food_delivery_redis_connection_status`
 - `food_delivery_redis_operation_duration_seconds`
 - `food_delivery_auth_attempts_total`
 - `food_delivery_order_status_transitions_total`
 - `food_delivery_payment_attempts_total`
-- `food_delivery_payment_duration_seconds`
 - `food_delivery_queue_depth`
-- `food_delivery_queue_processing_duration_seconds`
-- `food_delivery_queue_failures_total`
-- `food_delivery_queue_retries_total`
 - `food_delivery_notification_events_total`
 - `food_delivery_cache_events_total`
-- `food_delivery_cache_operation_duration_seconds`
-- `food_delivery_cache_invalidations_total`
 - `food_delivery_rider_delivery_events_total`
 - `food_delivery_domain_events_total`
 
-Default Node.js process metrics are also exported with the `food_delivery_` prefix, including memory, heap, CPU, and event loop lag.
+Grafana provisions Prometheus, Loki, and Tempo datasources plus API, Orders, Infrastructure, Logs, and Tracing dashboards from `infrastructure/grafana`.
 
-Inspect metrics:
+Prometheus loads alert rules from `infrastructure/prometheus/alert-rules.yml`.
 
-```bash
-curl http://localhost:4000/metrics
-open http://localhost:9090/targets
-```
-
-## Logs
-
-The API writes structured JSON logs to stdout. Every log includes timestamp, traceId, spanId, requestId, correlationId, level, endpoint, method, status, duration, userAgent, IP, and message.
-
-Flow:
-
-```text
-API stdout JSON -> Docker json-file logs -> Alloy docker source -> Loki -> Grafana
-```
-
-Useful Loki queries:
-
-```logql
-{project="food-delivery-observability",service="api"} |= "\"level\":\"error\""
-{project="food-delivery-observability",service="api"} |= "\"level\":\"warn\""
-{project="food-delivery-observability",service="api"} |= "\"method\":\"POST\"" |= "\"endpoint\":\"/orders\""
-{project="food-delivery-observability",service="api"} |= "Validation failure"
-```
-
-Inspect logs:
-
-```bash
-docker compose logs -f api
-./skills.sh skill_loki
-```
-
-## Traces
-
-The API initializes OpenTelemetry before NestJS starts. HTTP, Express, PostgreSQL, Redis, auth, cache, payment, queue, notification, rider, restaurant, order lifecycle, service, Prisma, and worker spans are added in the app.
-
-Flow:
-
-```text
-API OpenTelemetry SDK -> Alloy OTLP receiver -> Tempo -> Grafana
-```
-
-Generate and inspect traces:
+Useful checks:
 
 ```bash
 curl http://localhost:4000/health
-./skills.sh skill_trace
-```
-
-Tempo TraceQL example:
-
-```traceql
-{ resource.service.name = "food-delivery-api" }
-```
-
-## Grafana Dashboards
-
-Grafana automatically provisions Prometheus, Loki, and Tempo datasources plus these dashboards:
-
-- Food Delivery API
-- Food Delivery Orders
-- Food Delivery Infrastructure
-- Food Delivery Logs
-- Food Delivery Tracing
-
-The dashboards still focus on Phase 2 API, orders, infrastructure, logs, and traces. Phase 3 metrics are exposed and ready for dashboard expansion.
-
-Screenshot placeholders:
-
-- `docs/screenshots/api-dashboard.png`
-- `docs/screenshots/orders-dashboard.png`
-- `docs/screenshots/infrastructure-dashboard.png`
-- `docs/screenshots/logs-dashboard.png`
-- `docs/screenshots/tracing-dashboard.png`
-
-## Alerts
-
-Prometheus loads alert rules from `prometheus/alert-rules.yml`:
-
-- API latency above 500 ms
-- HTTP 500 spike
-- API memory above 80%
-- Redis unavailable
-- Database unavailable
-
-Check alerts at:
-
-```text
-http://localhost:9090/alerts
+curl http://localhost:4000/metrics
+open http://localhost:9090/targets
 ```
 
 ## Helper Commands
 
 ```bash
-./skills.sh skill_info
-./skills.sh skill_verify
-./skills.sh skill_verify_observability
-./skills.sh skill_metrics
-./skills.sh skill_trace
-./skills.sh skill_dashboards
-./skills.sh skill_prometheus
-./skills.sh skill_loki
-./skills.sh skill_tempo
-./skills.sh skill_alloy
+source ./skills.sh
+skill_info
+skill_workspace
+skill_verify_workspace
+skill_verify
+skill_verify_observability
+skill_metrics
+skill_trace
+skill_dashboards
 ```
 
-## Postman Collection
+The script can also be executed directly:
 
-Import `postman/food-delivery-observability.postman_collection.json` and `postman/food-delivery-observability.postman_environment.json` into Postman to test all API endpoints with local credentials.
-
-Run the seeded login requests first, then `GET /restaurants` so the collection captures access tokens, `restaurantId`, and `menuItemId` variables. Payment, notification, and delivery work happens asynchronously through BullMQ, so rerun the relevant `GET /orders/:orderId`, `GET /payments/:orderId`, or `GET /riders/deliveries` request after a short wait if a lifecycle action is not ready yet.
+```bash
+./skills.sh skill_info
+```
 
 ## Testing
 
-Unit tests:
-
 ```bash
 pnpm test
-```
-
-Coverage:
-
-```bash
 pnpm test:cov
+pnpm test:e2e
 ```
 
-E2E tests use the separate `food_delivery_test` PostgreSQL database. Start PostgreSQL and Redis first:
+E2E tests require PostgreSQL and Redis:
 
 ```bash
 docker compose up -d postgres redis
 pnpm test:e2e
 ```
 
-Lint and build:
+If another local PostgreSQL service owns `localhost:5432`, use a temporary Compose override or stop the conflicting service before running default e2e commands.
 
-```bash
-pnpm lint
-pnpm build
-```
+## Postman
+
+Import `postman/food-delivery-observability.postman_collection.json` and `postman/food-delivery-observability.postman_environment.json` into Postman.
+
+Run the seeded login requests first, then `GET /restaurants` so the collection captures access tokens, `restaurantId`, and `menuItemId` variables.
 
 ## Troubleshooting
 
 - `docker compose up --build` cannot bind `5432`: stop the local PostgreSQL service already using `localhost:5432`.
-- Grafana has no dashboards: check `docker compose logs grafana` and verify `grafana/provisioning/dashboards/dashboards.yml` is mounted.
+- API Docker build cannot find workspace files: confirm the Compose API build context is the repo root and the Dockerfile path is `apps/api/Dockerfile`.
+- Grafana has no dashboards: check `docker compose logs grafana` and verify `infrastructure/grafana/provisioning` is mounted.
 - Loki has no API logs: hit `http://localhost:4000/health`, then check `docker compose logs alloy` and `./skills.sh skill_loki`.
 - Tempo has no traces: hit `http://localhost:4000/health`, wait a few seconds, then run `./skills.sh skill_trace`.
 - Prometheus target is down: check `http://localhost:9090/targets` and `docker compose logs api prometheus`.
