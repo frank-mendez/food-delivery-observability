@@ -1,0 +1,1561 @@
+{
+  "info": {
+    "_postman_id": "4faea3af-46f9-4f83-8846-fd0b1e0b2026",
+    "name": "Food Delivery Observability API",
+    "description": "Postman collection for testing all Phase 3 Food Delivery Observability API endpoints. Run the Login requests first so token variables are populated. Run List Restaurants before order and restaurant detail requests so restaurantId and menuItemId are populated. Grafana login variables are available as grafanaUrl, grafanaUsername, and grafanaPassword. Seeded API user emails are stored as role variables and all use the shared password variable.",
+    "schema": "https://schema.postman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "grafanaUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "grafanaUsername",
+      "value": "admin",
+      "type": "string"
+    },
+    {
+      "key": "grafanaPassword",
+      "value": "admin",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com",
+      "type": "string"
+    },
+    {
+      "key": "customerEmail",
+      "value": "customer@example.com",
+      "type": "string"
+    },
+    {
+      "key": "ownerEmail",
+      "value": "owner@example.com",
+      "type": "string"
+    },
+    {
+      "key": "riderEmail",
+      "value": "rider@example.com",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Password123!",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Smoke",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/"
+          }
+        },
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /metrics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "metrics"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "POST /auth/login - admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('adminAccessToken', json.accessToken);",
+                  "pm.collectionVariables.set('adminRefreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/login - customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('customerAccessToken', json.accessToken);",
+                  "pm.collectionVariables.set('customerRefreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/login - owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('ownerAccessToken', json.accessToken);",
+                  "pm.collectionVariables.set('ownerRefreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ownerEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/login - rider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('riderAccessToken', json.accessToken);",
+                  "pm.collectionVariables.set('riderRefreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{riderEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/register - customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.customer.{{$timestamp}}.{{$randomInt}}@example.com\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Postman Customer\",\n  \"phone\": \"+15550103030\",\n  \"address\": \"300 Postman Test Ave\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/register/restaurant-owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.owner.{{$timestamp}}.{{$randomInt}}@example.com\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Postman Owner\",\n  \"phone\": \"+15550104040\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register/restaurant-owner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                "restaurant-owner"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/refresh - customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('customerAccessToken', json.accessToken);",
+                  "pm.collectionVariables.set('customerRefreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/logout - customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /auth/admin/users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.admin.created.{{$timestamp}}.{{$randomInt}}@example.com\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Postman Admin Created User\",\n  \"role\": \"ADMINISTRATOR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "admin",
+                "users"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Customers",
+      "item": [
+        {
+          "name": "GET /customers/me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /customers/me",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Customer Updated\",\n  \"phone\": \"+15550101010\",\n  \"address\": \"100 Local Test Ave, Suite P\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /customers/me/orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/me/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "me",
+                "orders"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Restaurants",
+      "item": [
+        {
+          "name": "GET /restaurants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const restaurants = pm.response.json();",
+                  "const restaurant = restaurants.find((item) => Array.isArray(item.menuItems) && item.menuItems.length > 0);",
+                  "if (restaurant) {",
+                  "  pm.collectionVariables.set('restaurantId', restaurant.id);",
+                  "  pm.collectionVariables.set('menuItemId', restaurant.menuItems[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /restaurants/popular-items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/popular-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "popular-items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /restaurants/popular-items?restaurantId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/popular-items?restaurantId={{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "popular-items"
+              ],
+              "query": [
+                {
+                  "key": "restaurantId",
+                  "value": "{{restaurantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /restaurants/:restaurantId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":restaurantId"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /restaurants/:restaurantId/menu",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/menu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":restaurantId",
+                "menu"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /restaurants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('createdRestaurantId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Kitchen {{$timestamp}} {{$randomInt}}\",\n  \"status\": \"OPEN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Kitchen Updated {{$timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{createdRestaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":createdRestaurantId"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId/status - close",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CLOSED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{createdRestaurantId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":createdRestaurantId",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId/status - open",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OPEN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{createdRestaurantId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":createdRestaurantId",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /restaurants/:restaurantId/menu-items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('createdMenuItemId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Bowl {{$timestamp}} {{$randomInt}}\",\n  \"price\": 12.5,\n  \"isAvailable\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{createdRestaurantId}}/menu-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":createdRestaurantId",
+                "menu-items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId/menu-items/:menuItemId",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 13.25,\n  \"isAvailable\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{createdRestaurantId}}/menu-items/{{createdMenuItemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":createdRestaurantId",
+                "menu-items",
+                ":createdMenuItemId"
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /restaurants/:restaurantId/menu-items/:menuItemId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{createdRestaurantId}}/menu-items/{{createdMenuItemId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":createdRestaurantId",
+                "menu-items",
+                ":createdMenuItemId"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Orders and Payments",
+      "item": [
+        {
+          "name": "POST /orders - success payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('orderIdSuccess', json.id);",
+                  "pm.collectionVariables.set('paymentOrderId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"paymentScenario\": \"success\",\n  \"items\": [\n    {\n      \"menuItemId\": \"{{menuItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /orders/:orderId - success",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderIdSuccess}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                ":orderIdSuccess"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /payments/:orderId - success",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/{{orderIdSuccess}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                ":orderIdSuccess"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /orders - failure payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('orderIdFailure', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"paymentScenario\": \"failure\",\n  \"items\": [\n    {\n      \"menuItemId\": \"{{menuItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /orders/:orderId - failure",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderIdFailure}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                ":orderIdFailure"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /payments/:orderId - failure",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/{{orderIdFailure}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                ":orderIdFailure"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /payments/:orderId/retry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scenario\": \"success\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/{{orderIdFailure}}/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                ":orderIdFailure",
+                "retry"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /orders - timeout payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('orderIdTimeout', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"paymentScenario\": \"timeout\",\n  \"items\": [\n    {\n      \"menuItemId\": \"{{menuItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /orders/:orderId - timeout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderIdTimeout}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                ":orderIdTimeout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /orders - cancel target",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('orderIdCancel', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"paymentScenario\": \"timeout\",\n  \"items\": [\n    {\n      \"menuItemId\": \"{{menuItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /orders/:orderId/cancel",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderIdCancel}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                ":orderIdCancel",
+                "cancel"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Restaurant Order Lifecycle",
+      "item": [
+        {
+          "name": "PATCH /restaurants/:restaurantId/orders/:orderId/accept",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/orders/{{orderIdSuccess}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":restaurantId",
+                "orders",
+                ":orderIdSuccess",
+                "accept"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId/orders/:orderId/preparing",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/orders/{{orderIdSuccess}}/preparing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":restaurantId",
+                "orders",
+                ":orderIdSuccess",
+                "preparing"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId/orders/:orderId/ready",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/orders/{{orderIdSuccess}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":restaurantId",
+                "orders",
+                ":orderIdSuccess",
+                "ready"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /restaurants/:restaurantId/orders/:orderId/reject",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/orders/{{orderIdFailure}}/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                ":restaurantId",
+                "orders",
+                ":orderIdFailure",
+                "reject"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Riders",
+      "item": [
+        {
+          "name": "POST /riders/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.rider.{{$timestamp}}.{{$randomInt}}@example.com\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Postman Rider\",\n  \"phone\": \"+15550105050\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/riders/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /riders/me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/riders/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /riders/me/availability",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"availability\": \"AVAILABLE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/riders/me/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "me",
+                "availability"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /riders/assignments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ownerAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderIdSuccess}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/riders/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "assignments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /riders/deliveries",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const deliveries = pm.response.json();",
+                  "const preferred = deliveries.find((delivery) => delivery.orderId === pm.collectionVariables.get('orderIdSuccess')) || deliveries[0];",
+                  "if (preferred) {",
+                  "  pm.collectionVariables.set('deliveryId', preferred.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/riders/deliveries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "deliveries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /riders/deliveries/:deliveryId/accept",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/riders/deliveries/{{deliveryId}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "deliveries",
+                ":deliveryId",
+                "accept"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /riders/deliveries/:deliveryId/pick-up",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/riders/deliveries/{{deliveryId}}/pick-up",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "deliveries",
+                ":deliveryId",
+                "pick-up"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /riders/deliveries/:deliveryId/out-for-delivery",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/riders/deliveries/{{deliveryId}}/out-for-delivery",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "deliveries",
+                ":deliveryId",
+                "out-for-delivery"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH /riders/deliveries/:deliveryId/deliver",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{riderAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/riders/deliveries/{{deliveryId}}/deliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "riders",
+                "deliveries",
+                ":deliveryId",
+                "deliver"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Notifications",
+      "item": [
+        {
+          "name": "GET /notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

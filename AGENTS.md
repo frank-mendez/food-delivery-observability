@@ -203,6 +203,8 @@ Completed work:
 - Improved order DTO validation to require exactly one of `items` or `menuItemIds`.
 - Updated unit and e2e tests for observability and Phase 3 contracts.
 - Updated README and `skills.sh` for Phase 3.
+- Added a Postman collection at `postman/food-delivery-observability.postman_collection.json` covering all API endpoints with seeded login requests and collection variables for tokens, restaurant/menu IDs, order IDs, and delivery IDs.
+- Added a Postman local environment at `postman/food-delivery-observability.postman_environment.json` with Grafana `admin` / `admin` credentials and seeded API user credential variables.
 
 Pending work:
 - Add focused unit coverage for Phase 3 services so `pnpm test:cov --runInBand` passes the configured global thresholds.
@@ -244,7 +246,7 @@ Next recommended task:
 Close the remaining Phase 3 Definition of Done gaps: add unit tests for auth/cache/customers/domain-events/notifications/payments/queues/order lifecycle/riders until coverage passes, expand Grafana dashboards and Prometheus alerts for the new Phase 3 metric families, and isolate Redis cache state for e2e tests. Do not build a frontend unless scope changes.
 
 Last updated:
-2026-07-13 20:55 PHT/UTC+08
+2026-07-13 21:55 PHT/UTC+08
 
 At the end of every major task, update the Context Handoff section in `AGENTS.md` so the next agent can continue without reading the full conversation.
 

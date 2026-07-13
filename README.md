@@ -270,6 +270,12 @@ http://localhost:9090/alerts
 ./skills.sh skill_alloy
 ```
 
+## Postman Collection
+
+Import `postman/food-delivery-observability.postman_collection.json` and `postman/food-delivery-observability.postman_environment.json` into Postman to test all API endpoints with local credentials.
+
+Run the seeded login requests first, then `GET /restaurants` so the collection captures access tokens, `restaurantId`, and `menuItemId` variables. Payment, notification, and delivery work happens asynchronously through BullMQ, so rerun the relevant `GET /orders/:orderId`, `GET /payments/:orderId`, or `GET /riders/deliveries` request after a short wait if a lifecycle action is not ready yet.
+
 ## Testing
 
 Unit tests:
