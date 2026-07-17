@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useRoleSession } from '@/hooks/use-role-session';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 import { useSessionStore } from '@/stores/session-store';
-import { getOrderTimeline } from '../lib/order-view';
+import { canCustomerCancelOrder, getOrderTimeline } from '../lib/order-view';
 import { useCancelOrder, useOrderDetail, useRetryPayment } from '../hooks/use-orders';
 
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
@@ -87,7 +87,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {activeRole === 'customer' && order.status !== 'CANCELLED' ? (
+                {activeRole === 'customer' && canCustomerCancelOrder(order) ? (
                   <Button
                     type="button"
                     variant="destructive"

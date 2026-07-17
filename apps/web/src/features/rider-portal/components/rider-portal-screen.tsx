@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select';
 import { useRoleSession } from '@/hooks/use-role-session';
 import { formatDateTime } from '@/lib/format';
 import type { RiderAvailability } from '@/types/domain';
+import { getCurrentDelivery } from '@/features/orders/lib/order-view';
 import {
   useRiderDeliveries,
   useRiderProfile,
@@ -25,7 +26,7 @@ export function RiderPortalScreen() {
   const deliveriesQuery = useRiderDeliveries();
   const availabilityMutation = useUpdateRiderAvailability();
   const deliveries = deliveriesQuery.data ?? [];
-  const current = deliveries.find((delivery) => delivery.status !== 'DELIVERED');
+  const current = getCurrentDelivery(deliveries);
 
   return (
     <section className="space-y-6">

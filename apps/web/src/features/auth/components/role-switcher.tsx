@@ -47,26 +47,35 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
           accounts through real backend login.
         </p>
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div
+        className={cn('grid gap-2', compact ? 'grid-cols-1' : 'md:grid-cols-3')}
+      >
         {roles.map((role) => {
           const Icon = role.icon;
           const selected = activeRole === role.value;
           const connected = Boolean(sessions[role.value]);
+          const status = connected ? 'Live' : DEMO_ACCOUNTS[role.value].email;
 
           return (
             <Button
               key={role.value}
               type="button"
               variant={selected ? 'default' : 'outline'}
-              className="justify-start"
+              className={cn(
+                'min-w-0 justify-start',
+                compact ? 'w-full px-3' : 'w-full',
+              )}
               aria-pressed={selected}
+              aria-label={`${role.label} ${status}`}
               onClick={() => handleRoleChange(role.value)}
               isLoading={isConnecting && selected}
             >
-              <Icon className="h-4 w-4" />
-              <span>{role.label}</span>
-              <span className="ml-auto text-xs opacity-75">
-                {connected ? 'Live' : DEMO_ACCOUNTS[role.value].email}
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left">
+                {role.label}
+              </span>
+              <span className="ml-auto max-w-32 shrink-0 truncate text-xs opacity-75">
+                {status}
               </span>
             </Button>
           );

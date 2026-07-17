@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useDemoSession } from '@/features/auth/hooks/use-demo-session';
+import { isAccessTokenFresh } from '@/features/auth/lib/session-tokens';
 import { useSessionStore } from '@/stores/session-store';
 import type { DevelopmentRole } from '@/types/domain';
 
@@ -16,7 +17,10 @@ export function useRoleSession(role: DevelopmentRole) {
       setActiveRole(role);
     }
 
-    if (!session && !isConnecting) {
+    const needsSession =
+      !session || !isAccessTokenFresh(session.accessToken);
+
+    if (needsSession && !isConnecting) {
       void ensureSession(role);
     }
   }, [

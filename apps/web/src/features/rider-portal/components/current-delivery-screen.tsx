@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useRoleSession } from '@/hooks/use-role-session';
 import { formatCurrency } from '@/lib/format';
 import {
+  getCurrentDelivery,
   getDeliveryTimeline,
   nextDeliveryAction,
 } from '@/features/orders/lib/order-view';
@@ -21,9 +22,7 @@ export function CurrentDeliveryScreen() {
   useRoleSession('rider');
   const deliveriesQuery = useRiderDeliveries();
   const updateDeliveryMutation = useUpdateDelivery();
-  const delivery = (deliveriesQuery.data ?? []).find(
-    (item) => item.status !== 'DELIVERED',
-  );
+  const delivery = getCurrentDelivery(deliveriesQuery.data ?? []);
   const nextAction = delivery ? nextDeliveryAction(delivery) : null;
 
   return (

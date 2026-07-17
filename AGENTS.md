@@ -127,6 +127,7 @@ pnpm storybook
 pnpm build-storybook
 pnpm verify
 pnpm docker:build
+pnpm docker:app
 pnpm docker:up
 pnpm docker:down
 pnpm docker:logs
@@ -306,6 +307,9 @@ Current status:
 - The repository is a lightweight pnpm monorepo with `apps/api` for the NestJS backend, `apps/web` for the Phase 4 Next.js frontend, and `infrastructure` for Docker observability and database config.
 - Phase 4 frontend is implemented and verified. It is no longer a placeholder.
 - The web app is a Next.js App Router application using TypeScript, Tailwind CSS, shadcn-style primitives, TanStack Query, Zustand, React Hook Form, Zod, Storybook, Vitest, React Testing Library, Playwright, Lucide icons, and Framer Motion.
+- Protected frontend demo sessions now refresh stale access tokens before protected customer, restaurant, and rider API calls. If refresh fails, or if a protected request still returns 401, the app falls back to logging into the seeded demo account for that role, which fixes the restaurant orders "Access token is invalid" state caused by stale persisted JWTs.
+- Customer order detail actions now mirror the backend lifecycle: only `PENDING` and `PAYMENT_PENDING` orders show "Cancel order"; restaurant `REJECTED` orders are terminal and render a rejected timeline branch instead of future kitchen/delivery states.
+- Rider delivery history now shows completed `DELIVERED` deliveries only, sorted by delivered/update time. Active rider assignments stay on the rider dashboard and current delivery screens, and duplicate delivery/order status badges are hidden when both statuses are the same.
 
 Phase 4 frontend completed:
 - Customer flows: landing, restaurant listing, restaurant search/filtering, restaurant details, menu browsing, cart, checkout, order creation, order history, order tracking, and profile.
@@ -389,6 +393,9 @@ Verification results for Phase 4:
 - `source ./skills.sh; skill_verify`: passed, 6 passed and 0 failed.
 - `source ./skills.sh; skill_verify_web`: passed, 4 passed and 0 failed.
 - `source ./skills.sh; skill_verify_ports`: passed, 28 passed and 0 failed.
+- Token lifecycle fix on 2026-07-17: `pnpm --filter @food-delivery/web lint`, `pnpm --filter @food-delivery/web typecheck`, `pnpm --filter @food-delivery/web test -- src/features/auth/tests/session-tokens.test.ts`, and `pnpm --filter @food-delivery/web build` passed. `docker compose up --build -d web` rebuilt and restarted the running web service; `GET http://localhost:4000/health` and `HEAD http://localhost:3001/restaurant/orders` passed.
+- Order detail lifecycle UI fix on 2026-07-17: `pnpm --filter @food-delivery/web lint`, `pnpm --filter @food-delivery/web typecheck`, `pnpm --filter @food-delivery/web test -- src/features/orders/tests/order-view.test.ts`, and `pnpm --filter @food-delivery/web build` passed. `docker compose up --build -d web` rebuilt and restarted the running web service; `GET http://localhost:4000/health` and `HEAD http://localhost:3001/orders` passed.
+- Rider delivery history UI fix on 2026-07-17: `pnpm --filter @food-delivery/web lint`, `pnpm --filter @food-delivery/web typecheck`, `pnpm --filter @food-delivery/web test -- src/features/orders/tests/order-view.test.ts`, and `pnpm --filter @food-delivery/web build` passed. `docker compose up --build -d web` rebuilt and restarted the running web service; `GET http://localhost:4000/health` and `HEAD http://localhost:3001/rider/history` passed.
 
 Known issues:
 - Root `pnpm test:cov` still targets API coverage only and remains the known Phase 3 coverage gap unless focused backend unit tests are added.
@@ -424,8 +431,10 @@ Important decisions:
 How to run the app:
 
 ```bash
-docker compose up --build
+pnpm docker:app
 ```
+
+Use `pnpm docker:up` for the full observability stack.
 
 Open the web app at `http://localhost:3001` and the API at `http://localhost:4000`.
 
@@ -441,7 +450,7 @@ Next recommended task:
 - Optional Phase 4 follow-up: add visual regression snapshots or captured README screenshots now that the app is running.
 
 Last updated:
-2026-07-14 00:35 PHT/UTC+08
+2026-07-17 19:27 PHT/UTC+08
 
 At the end of every major task, update this Context Handoff section so the next agent can continue without reading the full conversation.
 

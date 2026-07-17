@@ -32,6 +32,7 @@
     "prisma:migrate": "pnpm --filter @food-delivery/api prisma:migrate",
     "prisma:migrate:deploy": "pnpm --filter @food-delivery/api prisma:migrate:deploy",
     "prisma:seed": "pnpm --filter @food-delivery/api prisma:seed",
+    "docker:app": "docker compose up --build -d api web",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:build": "docker compose build",

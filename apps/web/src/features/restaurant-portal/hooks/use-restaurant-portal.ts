@@ -8,6 +8,7 @@ import {
   type CreateMenuItemPayload,
   type UpdateMenuItemPayload,
 } from '@/lib/api/repositories/restaurants';
+import { withRoleAccessToken } from '@/features/auth/lib/session-tokens';
 import { useSessionStore } from '@/stores/session-store';
 import { useRestaurants } from '@/features/restaurants/hooks/use-restaurants';
 import type { RestaurantStatus } from '@/types/domain';
@@ -47,7 +48,10 @@ export function useRestaurantOrders(restaurantId?: string) {
     queryKey: restaurantId
       ? [...queryKeys.restaurants.orders(restaurantId), token]
       : ['restaurants', 'orders', 'missing'],
-    queryFn: () => restaurantsRepository.orders(restaurantId ?? '', token ?? ''),
+    queryFn: () =>
+      withRoleAccessToken('restaurant', (token) =>
+        restaurantsRepository.orders(restaurantId ?? '', token),
+      ),
     enabled: Boolean(restaurantId && token),
   });
 }
@@ -56,16 +60,10 @@ export function useUpdateRestaurantStatus(restaurantId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (status: RestaurantStatus) => {
-      const token =
-        useSessionStore.getState().sessions.restaurant?.accessToken;
-
-      return restaurantsRepository.updateStatus(
-        restaurantId ?? '',
-        token ?? '',
-        status,
-      );
-    },
+    mutationFn: (status: RestaurantStatus) =>
+      withRoleAccessToken('restaurant', (token) =>
+        restaurantsRepository.updateStatus(restaurantId ?? '', token, status),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.restaurants.all,
@@ -84,17 +82,15 @@ export function useTransitionRestaurantOrder(restaurantId?: string) {
     }: {
       orderId: string;
       action: 'accept' | 'reject' | 'preparing' | 'ready';
-    }) => {
-      const token =
-        useSessionStore.getState().sessions.restaurant?.accessToken;
-
-      return restaurantsRepository.transitionOrder(
-        restaurantId ?? '',
-        orderId,
-        action,
-        token ?? '',
-      );
-    },
+    }) =>
+      withRoleAccessToken('restaurant', (token) =>
+        restaurantsRepository.transitionOrder(
+          restaurantId ?? '',
+          orderId,
+          action,
+          token,
+        ),
+      ),
     onSuccess: async () => {
       if (restaurantId) {
         await queryClient.invalidateQueries({
@@ -109,16 +105,10 @@ export function useCreateMenuItem(restaurantId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: CreateMenuItemPayload) => {
-      const token =
-        useSessionStore.getState().sessions.restaurant?.accessToken;
-
-      return restaurantsRepository.createMenuItem(
-        restaurantId ?? '',
-        token ?? '',
-        payload,
-      );
-    },
+    mutationFn: (payload: CreateMenuItemPayload) =>
+      withRoleAccessToken('restaurant', (token) =>
+        restaurantsRepository.createMenuItem(restaurantId ?? '', token, payload),
+      ),
     onSuccess: async () => {
       if (restaurantId) {
         await queryClient.invalidateQueries({
@@ -140,17 +130,15 @@ export function useUpdateMenuItem(restaurantId?: string) {
     }: {
       menuItemId: string;
       payload: UpdateMenuItemPayload;
-    }) => {
-      const token =
-        useSessionStore.getState().sessions.restaurant?.accessToken;
-
-      return restaurantsRepository.updateMenuItem(
-        restaurantId ?? '',
-        menuItemId,
-        token ?? '',
-        payload,
-      );
-    },
+    }) =>
+      withRoleAccessToken('restaurant', (token) =>
+        restaurantsRepository.updateMenuItem(
+          restaurantId ?? '',
+          menuItemId,
+          token,
+          payload,
+        ),
+      ),
     onSuccess: async () => {
       if (restaurantId) {
         await queryClient.invalidateQueries({

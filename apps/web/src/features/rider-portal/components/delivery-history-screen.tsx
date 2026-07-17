@@ -10,19 +10,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRoleSession } from '@/hooks/use-role-session';
 import { formatCurrency, formatDateTime } from '@/lib/format';
+import {
+  getDeliveryHistoryItems,
+  shouldShowLinkedOrderStatus,
+} from '@/features/orders/lib/order-view';
 import { useRiderDeliveries } from '../hooks/use-rider';
 
 export function DeliveryHistoryScreen() {
   useRoleSession('rider');
   const deliveriesQuery = useRiderDeliveries();
-  const deliveries = deliveriesQuery.data ?? [];
+  const deliveries = getDeliveryHistoryItems(deliveriesQuery.data ?? []);
 
   return (
     <section className="space-y-6">
       <PageHeader
         eyebrow="Rider"
         title="Delivery history"
-        description="Review assigned and completed deliveries from the backend rider endpoint."
+        description="Review completed deliveries from the backend rider endpoint."
         actions={
           <Button
             type="button"
@@ -56,13 +60,15 @@ export function DeliveryHistoryScreen() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={delivery.status} />
-                  {delivery.order ? <StatusBadge status={delivery.order.status} /> : null}
+                  {shouldShowLinkedOrderStatus(delivery) && delivery.order ? (
+                    <StatusBadge status={delivery.order.status} />
+                  ) : null}
                 </div>
                 <h2 className="mt-3 text-lg font-semibold">
                   {delivery.order?.restaurant.name ?? 'Delivery assignment'}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Updated {formatDateTime(delivery.updatedAt)}
+                  Delivered {formatDateTime(delivery.deliveredAt ?? delivery.updatedAt)}
                 </p>
               </div>
               <p className="text-2xl font-semibold">

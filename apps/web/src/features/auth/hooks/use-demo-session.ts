@@ -1,12 +1,12 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { authRepository } from '@/lib/api/repositories/auth';
 import { DEMO_ACCOUNTS } from '@/lib/demo-accounts';
 import { useSessionStore } from '@/stores/session-store';
 import type { AuthSession, DevelopmentRole } from '@/types/domain';
+import { ensureRoleSession, isAccessTokenFresh } from '../lib/session-tokens';
 
 export function useDemoSession(role?: DevelopmentRole) {
   const activeRole = useSessionStore((state) => state.activeRole);
@@ -14,16 +14,10 @@ export function useDemoSession(role?: DevelopmentRole) {
   const setSession = useSessionStore((state) => state.setSession);
   const selectedRole = role ?? activeRole;
   const session = sessions[selectedRole];
+  const [isEnsuringSession, setIsEnsuringSession] = useState(false);
 
   const loginMutation = useMutation({
-    mutationFn: async (targetRole: DevelopmentRole) => {
-      const account = DEMO_ACCOUNTS[targetRole];
-
-      return authRepository.login({
-        email: account.email,
-        password: account.password,
-      });
-    },
+    mutationFn: ensureRoleSession,
     onSuccess: (nextSession, targetRole) => {
       setSession(targetRole, nextSession);
       toast.success(`Connected ${DEMO_ACCOUNTS[targetRole].label}`);
@@ -39,13 +33,22 @@ export function useDemoSession(role?: DevelopmentRole) {
     async (targetRole: DevelopmentRole = selectedRole): Promise<AuthSession> => {
       const currentSession = useSessionStore.getState().sessions[targetRole];
 
-      if (currentSession) {
+      if (
+        currentSession &&
+        isAccessTokenFresh(currentSession.accessToken)
+      ) {
         return currentSession;
       }
 
-      return loginMutation.mutateAsync(targetRole);
+      setIsEnsuringSession(true);
+
+      try {
+        return await ensureRoleSession(targetRole);
+      } finally {
+        setIsEnsuringSession(false);
+      }
     },
-    [loginMutation, selectedRole],
+    [selectedRole],
   );
 
   return {
@@ -53,6 +56,6 @@ export function useDemoSession(role?: DevelopmentRole) {
     ensureSession,
     login: loginMutation.mutate,
     loginAsync: loginMutation.mutateAsync,
-    isConnecting: loginMutation.isPending,
+    isConnecting: loginMutation.isPending || isEnsuringSession,
   };
 }

@@ -141,10 +141,13 @@ Root script aliases:
 
 ```bash
 pnpm docker:build
+pnpm docker:app
 pnpm docker:up
 pnpm docker:down
 pnpm docker:logs
 ```
+
+Use `pnpm docker:app` to start the backend and web services with their required Compose dependencies. Use `pnpm docker:up` for the full stack.
 
 The API and web images are built from the monorepo root with `apps/api/Dockerfile` and `apps/web/Dockerfile` so Docker can access `pnpm-lock.yaml`, `pnpm-workspace.yaml`, the root package, and each workspace package manifest.
 
@@ -217,7 +220,7 @@ REDIS_HOST_PORT=16379
 Then start the stack normally:
 
 ```bash
-docker compose up --build
+pnpm docker:app
 ```
 
 Host-run API or e2e commands use localhost ports, so mirror overrides there when needed:

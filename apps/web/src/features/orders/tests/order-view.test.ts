@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canCustomerCancelOrder,
+  getCurrentDelivery,
+  getDeliveryHistoryItems,
   getDeliveryTimeline,
   getOrderTimeline,
   getOrderTotalItems,
   nextDeliveryAction,
+  shouldShowLinkedOrderStatus,
 } from '../lib/order-view';
 import type { Delivery, Order } from '@/types/domain';
 
@@ -60,6 +64,25 @@ describe('order view helpers', () => {
     expect(timeline.find((item) => item.current)?.label).toBe('PREPARING');
   });
 
+  it('only allows customer cancellation before payment completes', () => {
+    expect(
+      canCustomerCancelOrder({ ...order, status: 'PAYMENT_PENDING' }),
+    ).toBe(true);
+    expect(canCustomerCancelOrder({ ...order, status: 'PAID' })).toBe(false);
+    expect(canCustomerCancelOrder({ ...order, status: 'REJECTED' })).toBe(false);
+  });
+
+  it('shows rejected orders as a terminal timeline branch', () => {
+    const timeline = getOrderTimeline({ ...order, status: 'REJECTED' });
+
+    expect(timeline.map((item) => item.label)).toEqual([
+      'PAYMENT_PENDING',
+      'PAID',
+      'REJECTED',
+    ]);
+    expect(timeline.find((item) => item.current)?.label).toBe('REJECTED');
+  });
+
   it('returns the next delivery action', () => {
     expect(nextDeliveryAction(delivery)).toEqual({
       action: 'out-for-delivery',
@@ -68,6 +91,47 @@ describe('order view helpers', () => {
     expect(getDeliveryTimeline(delivery).find((item) => item.current)?.label).toBe(
       'PICKED_UP',
     );
+  });
+
+  it('separates current delivery from completed history', () => {
+    const delivered = {
+      ...delivery,
+      id: 'delivery-2',
+      status: 'DELIVERED',
+      updatedAt: '2026-01-01T00:02:00.000Z',
+      deliveredAt: '2026-01-01T00:02:00.000Z',
+    } satisfies Delivery;
+    const laterDelivered = {
+      ...delivery,
+      id: 'delivery-3',
+      status: 'DELIVERED',
+      updatedAt: '2026-01-01T00:03:00.000Z',
+      deliveredAt: '2026-01-01T00:03:00.000Z',
+    } satisfies Delivery;
+
+    expect(getCurrentDelivery([delivered, delivery])).toEqual(delivery);
+    expect(
+      getDeliveryHistoryItems([delivered, delivery, laterDelivered]).map(
+        (item) => item.id,
+      ),
+    ).toEqual(['delivery-3', 'delivery-2']);
+  });
+
+  it('hides duplicate linked order status badges', () => {
+    expect(
+      shouldShowLinkedOrderStatus({
+        ...delivery,
+        status: 'DELIVERED',
+        order: { ...order, status: 'DELIVERED' },
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowLinkedOrderStatus({
+        ...delivery,
+        status: 'ASSIGNED',
+        order: { ...order, status: 'RIDER_ASSIGNED' },
+      }),
+    ).toBe(true);
   });
 
   it('handles each delivery action branch', () => {
